@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brand-primary: #a21c54;
+  --color-brand-primary-dark: #7a0e3a;
+  --color-brand-primary-light: #fff0f5;
+  --color-brand-accent: #ffc300;
+  --color-brand-bg: #fffbfd;
+  --color-brand-card: #FFFFFF;
+  --color-brand-border: #f8e8f0;
+  --color-brand-success: #1b8a4f;
+  --color-brand-warning: #ffc300;
+  --color-brand-danger: #d32f2f;
+  --color-brand-text: #1f0b14;
+  --color-brand-text-secondary: #6e5863;
+  
+  --radius-card: 20px;
+  --radius-button: 18px;
+  --radius-input: 16px;
+  --radius-nav: 24px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f3f4f6; /* slightly darker background for admin dashboard */
+  color: #1f0b14;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-primary);
+}
