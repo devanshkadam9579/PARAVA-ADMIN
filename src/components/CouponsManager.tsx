@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { Ticket, Plus, Trash2, Percentage } from 'lucide-react';
+import { Ticket, Plus, Trash2, Percent } from 'lucide-react';
 
 export default function CouponsManager() {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -74,7 +74,7 @@ export default function CouponsManager() {
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Type *</label>
             <select value={newType} onChange={e => setNewType(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary">
               <option value="flat">Flat (₹)</option>
-              <option value="percentage">Percentage (%)</option>
+              <option value="percentage">Percent (%)</option>
             </select>
           </div>
           <div className="md:col-span-2">
@@ -93,7 +93,7 @@ export default function CouponsManager() {
         {coupons.map(coupon => (
           <div key={coupon.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center">
-              {coupon.type === 'flat' ? <Ticket className="text-brand-primary/40" size={24} /> : <Percentage className="text-brand-primary/40" size={24} />}
+              {coupon.type === 'flat' ? <Ticket className="text-brand-primary/40" size={24} /> : <Percent className="text-brand-primary/40" size={24} />}
             </div>
             
             <div className="relative z-10">
