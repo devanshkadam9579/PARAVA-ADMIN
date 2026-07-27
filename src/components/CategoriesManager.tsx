@@ -32,8 +32,8 @@ export default function CategoriesManager() {
       });
       setNewCatName('');
       setNewCatIcon('');
-    } catch (e) {
-      alert('Error adding category');
+    } catch (e: any) {
+      alert(`Error adding category: ${e?.message || e}`);
     }
   };
 
@@ -42,8 +42,8 @@ export default function CategoriesManager() {
     try {
       const db = getDb();
       await deleteDoc(doc(db, 'categories', id));
-    } catch (e) {
-      alert('Failed to delete');
+    } catch (e: any) {
+      alert(`Failed to delete: ${e?.message || e}`);
     }
   };
   
