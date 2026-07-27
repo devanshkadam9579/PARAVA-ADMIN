@@ -11,10 +11,13 @@ interface VendorEditorOverlayProps {
 export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOverlayProps) {
   const isEdit = !!vendor;
   const [formData, setFormData] = useState<any>({
+    vendorPortalId: `PARVA-VEN-${Date.now()}`,
     name: '',
-    category: '',
+    category: 'Venues',
+    region: 'Mumbai',
     location: '',
     fullAddress: '',
+    googleMapsUrl: '',
     description: '',
     phone: '',
     whatsapp: '',
@@ -27,12 +30,19 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     reelUrl: '',
     founderName: '',
     founderBio: '',
+    founderImage: '',
     basePrice: '',
+    minBudget: '',
+    maxBudget: '',
+    eventsHandled: '',
     rating: '5.0',
     trustScore: '90',
     regionRank: '0',
-    approved: false
+    approved: false,
+    services: []
   });
+
+  const [newService, setNewService] = useState({ name: '', price: '', unit: 'event', description: '', image: '' });
 
   const [saving, setSaving] = useState(false);
 
@@ -40,14 +50,23 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     if (vendor) {
       setFormData({
         ...vendor,
+        vendorPortalId: vendor.vendorPortalId || vendor.id || `PARVA-VEN-${Date.now()}`,
+        region: vendor.region || 'Mumbai',
+        category: vendor.category || 'Venues',
+        googleMapsUrl: vendor.googleMapsUrl || '',
+        founderImage: vendor.founderImage || '',
         basePrice: vendor.basePrice || vendor.price || '',
+        minBudget: vendor.minBudget || vendor.basePrice || '',
+        maxBudget: vendor.maxBudget || '',
+        eventsHandled: vendor.eventsHandled ? vendor.eventsHandled.join(', ') : '',
         image1: vendor.images?.[0] || vendor.image || '',
         image2: vendor.images?.[1] || '',
         image3: vendor.images?.[2] || '',
         image4: vendor.images?.[3] || '',
         image5: vendor.images?.[4] || '',
         regionRank: vendor.regionRank || '0',
-        trustScore: vendor.trustScore || '90'
+        trustScore: vendor.trustScore || '90',
+        services: vendor.services || []
       });
     }
   }, [vendor]);
@@ -71,8 +90,11 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
 
       const payload = {
         ...formData,
-        basePrice: Number(formData.basePrice) || 0,
-        price: Number(formData.basePrice) || 0,
+        eventsHandled: formData.eventsHandled.split(',').map((e: string) => e.trim()).filter(Boolean),
+        basePrice: Number(formData.basePrice) || Number(formData.minBudget) || 0,
+        price: Number(formData.basePrice) || Number(formData.minBudget) || 0,
+        minBudget: Number(formData.minBudget) || 0,
+        maxBudget: Number(formData.maxBudget) || 0,
         rating: Number(formData.rating) || 5,
         trustScore: Number(formData.trustScore) || 90,
         regionRank: Number(formData.regionRank) || 0,
@@ -128,22 +150,49 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
           {/* Section 1: Basic Info */}
           <section>
             <h3 className="text-xs font-bold text-brand-primary uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Award size={14} /> Basic Information
+              <Award size={14} /> Basic Information & Portal Access
             </h3>
             <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Dedicated Vendor ID (For Portal Access) *</label>
+                <div className="relative">
+                  <ShieldCheck size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input required type="text" name="vendorPortalId" value={formData.vendorPortalId} onChange={handleChange} className="w-full bg-indigo-50/50 border border-indigo-200 text-indigo-700 font-mono rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-indigo-500" />
+                </div>
+              </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Vendor Name *</label>
                 <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category *</label>
-                <input required type="text" name="category" value={formData.category} onChange={handleChange} placeholder="e.g., Venues, Photography" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                <select name="category" value={formData.category} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary">
+                  <option value="Venues">Venues & Banquet Halls</option>
+                  <option value="Decorators">Decorators</option>
+                  <option value="Photographers">Photographers</option>
+                  <option value="Catering">Catering</option>
+                  <option value="Makeup Artists">Makeup Artists</option>
+                  <option value="Event Planners">Event Planners</option>
+                  <option value="DJs & Entertainment">DJs & Entertainment</option>
+                  <option value="Invitations">Invitations</option>
+                </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Base Price (₹) *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Events Handled (Comma Separated)</label>
+                <input type="text" name="eventsHandled" value={formData.eventsHandled} onChange={handleChange} placeholder="Wedding, Birthday, Corporate" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Min Budget (₹) *</label>
                 <div className="relative">
                   <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input required type="number" name="basePrice" value={formData.basePrice} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                  <input required type="number" name="minBudget" value={formData.minBudget} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Max Budget (₹)</label>
+                <div className="relative">
+                  <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="number" name="maxBudget" value={formData.maxBudget} onChange={handleChange} placeholder="Optional" className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
                 </div>
               </div>
               <div className="col-span-2">
@@ -164,8 +213,15 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                 <input type="text" name="founderName" value={formData.founderName} onChange={handleChange} placeholder="e.g. Rajvardhan Patil" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
               </div>
               <div className="col-span-2 md:col-span-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Founder Bio / Role</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Founder Role</label>
                 <input type="text" name="founderBio" value={formData.founderBio} onChange={handleChange} placeholder="e.g. 10 Years Experience" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Founder Profile Image URL</label>
+                <div className="relative">
+                  <ImageIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="url" name="founderImage" value={formData.founderImage} onChange={handleChange} placeholder="https://..." className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                </div>
               </div>
             </div>
           </section>
@@ -213,12 +269,31 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 md:col-span-1">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">City / Region *</label>
-                <input required type="text" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Mumbai, Maharashtra" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Region *</label>
+                <select name="region" value={formData.region} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary">
+                  <option value="Mumbai">Mumbai</option>
+                  <option value="Pune">Pune</option>
+                  <option value="Delhi">Delhi</option>
+                  <option value="Bangalore">Bangalore</option>
+                  <option value="Goa">Goa</option>
+                  <option value="Udaipur">Udaipur</option>
+                  <option value="Jaipur">Jaipur</option>
+                </select>
               </div>
               <div className="col-span-2 md:col-span-1">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">City / Specific Area *</label>
+                <input required type="text" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Bandra West" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+              </div>
+              <div className="col-span-2">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Full Address / Pincode</label>
                 <input type="text" name="fullAddress" value={formData.fullAddress} onChange={handleChange} placeholder="Detailed address..." className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Google Maps Embed URL</label>
+                <div className="relative">
+                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="url" name="googleMapsUrl" value={formData.googleMapsUrl} onChange={handleChange} placeholder="https://www.google.com/maps/embed?pb=..." className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Phone Number</label>
@@ -246,7 +321,7 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Region Rank Boost</label>
-                <input type="number" name="regionRank" value={formData.regionRank} onChange={handleChange} placeholder="0 = Default, 100 = Top" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                <input type="number" name="regionRank" value={formData.regionRank} onChange={handleChange} placeholder="0 = Default" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Rating (Out of 5)</label>
@@ -256,6 +331,84 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                 <input type="checkbox" id="approved" name="approved" checked={formData.approved} onChange={handleChange} className="w-5 h-5 rounded border-gray-300 text-brand-primary focus:ring-brand-primary" />
                 <label htmlFor="approved" className="text-sm font-bold text-gray-700">Vendor is Approved & Publicly Visible</label>
               </div>
+            </div>
+          </section>
+
+          {/* Section: Services Builder */}
+          <section>
+            <h3 className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Award size={14} /> Services Builder
+            </h3>
+            <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Service Name</label>
+                  <input type="text" value={newService.name} onChange={(e) => setNewService({ ...newService, name: e.target.value })} placeholder="e.g. 3-Tier Fondant Cake" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-rose-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Price (₹)</label>
+                  <input type="number" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-rose-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Unit</label>
+                  <input type="text" value={newService.unit} onChange={(e) => setNewService({ ...newService, unit: e.target.value })} placeholder="e.g. cake, hour, event" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-rose-400" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Description</label>
+                  <input type="text" value={newService.description} onChange={(e) => setNewService({ ...newService, description: e.target.value })} placeholder="Short details about the service" className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-rose-400" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Image URL (Optional)</label>
+                  <input type="url" value={newService.image} onChange={(e) => setNewService({ ...newService, image: e.target.value })} placeholder="https://..." className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-rose-400" />
+                </div>
+                <div className="col-span-2">
+                  <button 
+                    onClick={() => {
+                      if (newService.name && newService.price) {
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          services: [...(prev.services || []), { ...newService, price: Number(newService.price) }]
+                        }));
+                        setNewService({ name: '', price: '', unit: 'event', description: '', image: '' });
+                      }
+                    }}
+                    className="w-full py-2 bg-rose-500 text-white rounded-xl text-xs font-bold hover:bg-rose-600 transition"
+                  >
+                    + Add Service
+                  </button>
+                </div>
+              </div>
+
+              {formData.services && formData.services.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Added Services ({formData.services.length})</p>
+                  {formData.services.map((svc: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200">
+                      <div className="flex gap-3 items-center">
+                        {svc.image ? (
+                          <img src={svc.image} alt={svc.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                            <ImageIcon size={14} />
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{svc.name}</p>
+                          <p className="text-[10px] text-gray-500">₹{svc.price} / {svc.unit}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => {
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          services: prev.services.filter((_: any, i: number) => i !== idx)
+                        }));
+                      }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
