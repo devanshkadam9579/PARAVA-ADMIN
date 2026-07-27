@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { 
-  Grid, Tag, Inbox, Building2, TrendingUp, DollarSign
+  Grid, Tag, Inbox, Building2, TrendingUp, DollarSign, Activity
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -14,6 +14,8 @@ export default function Dashboard() {
     bookings: 0
   });
 
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
   useEffect(() => {
     const db = getDb();
     
@@ -22,7 +24,21 @@ export default function Dashboard() {
       onSnapshot(collection(db, 'categories'), snap => setStats(s => ({ ...s, categories: snap.size }))),
       onSnapshot(collection(db, 'promos'), snap => setStats(s => ({ ...s, promos: snap.size }))),
       onSnapshot(collection(db, 'leads'), snap => setStats(s => ({ ...s, leads: snap.size }))),
-      onSnapshot(collection(db, 'bookings'), snap => setStats(s => ({ ...s, bookings: snap.size })))
+      onSnapshot(collection(db, 'bookings'), snap => setStats(s => ({ ...s, bookings: snap.size }))),
+      
+      // Fetch recent leads as proxy for live activity feed
+      onSnapshot(query(collection(db, 'leads'), orderBy('timestamp', 'desc'), limit(10)), (snap) => {
+        const activities = snap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            type: 'lead',
+            message: `${data.userName || 'Someone'} requested info for ${data.vendorName || 'a vendor'}`,
+            time: data.timestamp
+          };
+        });
+        setRecentActivity(activities);
+      })
     ];
 
     return () => unsubs.forEach(fn => fn());
@@ -38,7 +54,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-black text-gray-800">System Overview</h2>
         <p className="text-sm text-gray-500 mt-1">Real-time metrics and database statistics.</p>
@@ -56,6 +72,31 @@ export default function Dashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Activity className="text-brand-primary" size={20} />
+            <h3 className="text-lg font-black text-gray-800">Live Activity Feed</h3>
+          </div>
+          
+          <div className="space-y-4">
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">No recent activity detected.</p>
+            ) : (
+              recentActivity.map(act => (
+                <div key={act.id} className="flex gap-4 items-start p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-100">
+                  <div className="w-2 h-2 rounded-full bg-brand-primary mt-1.5 shadow-[0_0_8px_rgba(235,39,105,0.5)]"></div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{act.message}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{new Date(act.time).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

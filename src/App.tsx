@@ -1,120 +1,95 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { getAuthInstance, getDb } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { 
-  LayoutDashboard, Users, Grid, Tag, Inbox, LogOut, Search, Bell
+  LayoutDashboard, Users, Grid, Tag, Inbox, LogOut, Search, Bell, Building2, Settings, Ticket
 } from 'lucide-react';
 
-// Sub-components to be imported later
 import Dashboard from './components/Dashboard';
 import VendorsManager from './components/VendorsManager';
 import CategoriesManager from './components/CategoriesManager';
 import PromosManager from './components/PromosManager';
+import UsersManager from './components/UsersManager';
+import LeadsManager from './components/LeadsManager';
+import SettingsManager from './components/SettingsManager';
+import CouponsManager from './components/CouponsManager';
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  
   const [activeTab, setActiveTab] = useState('dashboard');
-  
-  
+  const [globalSearch, setGlobalSearch] = useState('');
 
   useEffect(() => {
     const auth = getAuthInstance();
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        // Verify master admin status
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
         const db = getDb();
-        const userRef = doc(db, 'users', u.uid);
-        const snap = await getDoc(userRef);
-        if (snap.exists() && snap.data().role === 'master_admin') {
-          setUser(u);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const data = userDoc.data();
+        if (data?.role === 'master_admin' || data?.role === 'admin') {
           setIsAdmin(true);
         } else {
-          auth.signOut();
-          setErrorMsg('Access denied. Master Admin privileges required.');
+          setIsAdmin(false);
         }
       } else {
-        setUser(null);
         setIsAdmin(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
-    setLoading(true);
     try {
       const auth = getAuthInstance();
-      await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Login failed');
-      setLoading(false);
+      const cred = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      
+      const db = getDb();
+      const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+      const data = userDoc.data();
+      
+      if (data?.role === 'master_admin' || data?.role === 'admin') {
+        setIsAdmin(true);
+      } else {
+        alert('Access Denied. You are not an administrator.');
+        await auth.signOut();
+      }
+    } catch (e: any) {
+      alert('Login failed: ' + e.message);
     }
   };
 
-  const handleLogout = () => {
-    getAuthInstance().signOut();
+  const handleLogout = async () => {
+    await getAuthInstance().signOut();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  if (isAdmin === null) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold text-gray-500">Checking credentials...</div>;
   }
 
-  if (!user || !isAdmin) {
+  if (isAdmin === false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-[24px] shadow-xl w-full max-w-md">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-black text-brand-primary tracking-tight">PARVA</h1>
-            <p className="text-gray-500 font-medium text-sm mt-1 uppercase tracking-widest">Admin Workspace</p>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight">PARAVA <span className="text-brand-primary">ADMIN</span></h1>
+            <p className="text-sm text-gray-500 mt-2">Secure access required</p>
           </div>
           
-          {errorMsg && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-semibold mb-4 border border-red-100 text-center">
-              {errorMsg}
-            </div>
-          )}
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Email</label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={e => setLoginEmail(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-brand-primary transition"
-                required
-              />
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Admin Email</label>
+              <input type="email" required value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary" placeholder="devansh@parva.com" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Password</label>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={e => setLoginPassword(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-brand-primary transition"
-                required
-              />
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Password</label>
+              <input type="password" required value={loginPassword} onChange={e => setLoginPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary" placeholder="••••••••" />
             </div>
-            <button
-              type="submit"
-              className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white font-extrabold text-sm py-3.5 rounded-xl transition shadow-lg shadow-brand-primary/20 mt-4"
-            >
-              Secure Login
+            <button type="submit" className="w-full bg-brand-primary text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+              Unlock Console
             </button>
           </form>
         </div>
@@ -122,92 +97,87 @@ export default function App() {
     );
   }
 
-  const tabs = [
+  const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { id: 'vendors', label: 'Vendor Directory', icon: <Users size={18} /> },
+    { id: 'vendors', label: 'Vendors CRM', icon: <Building2 size={18} /> },
+    { id: 'users', label: 'Users', icon: <Users size={18} /> },
+    { id: 'leads', label: 'Leads', icon: <Inbox size={18} /> },
     { id: 'categories', label: 'Categories', icon: <Grid size={18} /> },
     { id: 'promos', label: 'Promotions', icon: <Tag size={18} /> },
-    { id: 'leads', label: 'Lead Insights', icon: <Inbox size={18} /> },
+    { id: 'coupons', label: 'Coupons', icon: <Ticket size={18} /> },
+    { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 flex font-sans text-brand-text">
+    <div className="min-h-screen bg-[#F8F9FB] flex">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 relative h-screen sticky top-0">
-        <div className="p-6 border-b border-gray-100">
-          <h1 className="text-2xl font-black text-brand-primary tracking-tight">PARVA</h1>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Global Admin</p>
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-screen sticky top-0">
+        <div className="h-16 flex items-center px-6 border-b border-gray-100">
+          <h1 className="text-xl font-black text-gray-900 tracking-tight">PARAVA <span className="text-brand-primary">CRM</span></h1>
         </div>
-        
-        <div className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
-          {tabs.map(tab => (
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {navItems.map(item => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-semibold text-sm
-                ${activeTab === tab.id 
-                  ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' 
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                activeTab === item.id 
+                  ? 'bg-brand-primary/10 text-brand-primary' 
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+              }`}
             >
-              {tab.icon}
-              {tab.label}
+              {item.icon}
+              {item.label}
             </button>
           ))}
-        </div>
-        
+        </nav>
         <div className="p-4 border-t border-gray-100">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-50 font-bold text-xs transition"
-          >
-            <LogOut size={14} />
-            Sign Out Session
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-red-500 hover:bg-red-50 transition-colors">
+            <LogOut size={18} /> Sign Out
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 shadow-sm z-0">
-          <h2 className="text-lg font-black text-gray-800 capitalize">{tabs.find(t => t.id === activeTab)?.label}</h2>
-          
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-30">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="relative w-full max-w-md hidden sm:block">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Global search..." 
-                className="bg-gray-100 border-none rounded-full px-4 py-1.5 pl-9 text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none w-64"
+                placeholder="Global Search (Coming Soon)..." 
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                disabled
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:bg-white focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 transition-all opacity-50 cursor-not-allowed"
               />
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
-            <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500 relative">
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-primary border-2 border-white"></span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="relative p-2 text-gray-400 hover:bg-gray-50 rounded-full transition-colors">
+              <Bell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
             </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-primary to-indigo-600 shadow flex items-center justify-center text-white font-bold text-xs">
-              A
+            <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              DK
             </div>
           </div>
         </header>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            {activeTab === 'dashboard' && <Dashboard />}
-            {activeTab === 'vendors' && <VendorsManager />}
-            {activeTab === 'categories' && <CategoriesManager />}
-            {activeTab === 'promos' && <PromosManager />}
-            {activeTab === 'leads' && (
-              <div className="bg-white rounded-2xl p-8 text-center text-gray-500 border border-gray-200">
-                <Inbox className="mx-auto text-gray-300 mb-4" size={48} />
-                <h3 className="text-xl font-bold text-gray-700">Leads Management</h3>
-                <p className="mt-2 text-sm">Leads implementation coming in next iteration.</p>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
+        {/* Tab Content */}
+        <div className="p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
+          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'vendors' && <VendorsManager />}
+          {activeTab === 'users' && <UsersManager />}
+          {activeTab === 'leads' && <LeadsManager />}
+          {activeTab === 'categories' && <CategoriesManager />}
+          {activeTab === 'promos' && <PromosManager />}
+          {activeTab === 'coupons' && <CouponsManager />}
+          {activeTab === 'settings' && <SettingsManager />}
+        </div>
+      </main>
     </div>
   );
 }
