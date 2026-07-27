@@ -166,16 +166,26 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category *</label>
-                <select name="category" value={formData.category} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary">
-                  <option value="Venues">Venues & Banquet Halls</option>
-                  <option value="Decorators">Decorators</option>
-                  <option value="Photographers">Photographers</option>
-                  <option value="Catering">Catering</option>
-                  <option value="Makeup Artists">Makeup Artists</option>
-                  <option value="Event Planners">Event Planners</option>
-                  <option value="DJs & Entertainment">DJs & Entertainment</option>
-                  <option value="Invitations">Invitations</option>
-                </select>
+                <input 
+                  required 
+                  list="vendor-categories"
+                  type="text" 
+                  name="category" 
+                  value={formData.category} 
+                  onChange={handleChange} 
+                  placeholder="Select or type category..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" 
+                />
+                <datalist id="vendor-categories">
+                  <option value="Venues" />
+                  <option value="Decorators" />
+                  <option value="Photographers" />
+                  <option value="Catering" />
+                  <option value="Makeup Artists" />
+                  <option value="Event Planners" />
+                  <option value="DJs & Entertainment" />
+                  <option value="Invitations" />
+                </datalist>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Events Handled (Comma Separated)</label>
