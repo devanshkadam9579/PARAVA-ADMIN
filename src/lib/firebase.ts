@@ -1,6 +1,6 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAuth, type Auth } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 let app: FirebaseApp | null = null;
@@ -24,14 +24,7 @@ const getFirebase = () => {
 export const getDb = () => getFirebase().db;
 export const getAuthInstance = () => getFirebase().auth;
 
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
+export type OperationType = 'create' | 'update' | 'delete' | 'list' | 'get' | 'write';
 
 export interface FirestoreErrorInfo {
   error: string;

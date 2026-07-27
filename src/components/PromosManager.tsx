@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, setDoc } from 'firebase/firestore';
-import { Tag, Trash2, Plus, Image } from 'lucide-react';
+import { Trash2, Plus } from 'lucide-react';
 
 export default function PromosManager() {
   const [promos, setPromos] = useState<any[]>([]);

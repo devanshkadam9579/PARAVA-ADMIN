@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Download, Search, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Download, Search, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import Papa from 'papaparse';
 
 export default function VendorsManager() {

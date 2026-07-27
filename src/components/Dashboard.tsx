@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { 
-  Users, Grid, Tag, Inbox, Building2, TrendingUp, DollarSign
+  Grid, Tag, Inbox, Building2, TrendingUp, DollarSign
 } from 'lucide-react';
 
 export default function Dashboard() {

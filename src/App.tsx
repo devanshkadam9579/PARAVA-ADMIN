@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { getAuthInstance, getDb } from './lib/firebase';
-import { doc, getDoc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { 
   LayoutDashboard, Users, Grid, Tag, Inbox, LogOut, Search, Bell
 } from 'lucide-react';
@@ -23,7 +23,7 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  const [stats, setStats] = useState<any>(null);
+  
 
   useEffect(() => {
     const auth = getAuthInstance();
