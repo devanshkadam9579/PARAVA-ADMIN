@@ -76,16 +76,17 @@ export default function CategoriesManager() {
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Add New Category</h3>
-        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4 items-end">
+        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4 items-start">
           <div className="flex-1 w-full">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category Name</label>
             <input required type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Wedding Planners" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
           </div>
           <div className="flex-1 w-full">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Lucide Icon Name</label>
-            <input type="text" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="e.g. music, camera, heart" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Icon URL (Image / GIF)</label>
+            <input type="url" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="https://... (GIF or PNG)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+            <p className="text-[9px] text-gray-400 mt-1">Recommended: 1:1 Aspect Ratio, min 100x100px.</p>
           </div>
-          <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center gap-2">
+          <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center gap-2 mt-[22px]">
             <Plus size={16} /> Add
           </button>
         </form>
@@ -98,7 +99,7 @@ export default function CategoriesManager() {
             {editingId === cat.id ? (
               <div className="absolute inset-0 bg-white rounded-2xl p-3 flex flex-col gap-2 z-10 border-2 border-brand-primary shadow-lg">
                 <input type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none" placeholder="Name" />
-                <input type="text" value={editIcon} onChange={e => setEditIcon(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none" placeholder="Icon" />
+                <input type="url" value={editIcon} onChange={e => setEditIcon(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none" placeholder="Image/GIF URL" />
                 <div className="flex gap-2 mt-auto">
                   <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-1 flex items-center justify-center"><X size={14}/></button>
                   <button onClick={handleSaveEdit} className="flex-1 bg-brand-primary text-white rounded-lg py-1 flex items-center justify-center"><Save size={14}/></button>
@@ -106,7 +107,7 @@ export default function CategoriesManager() {
               </div>
             ) : (
               <>
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition z-10">
                   <button onClick={() => startEdit(cat)} className="p-1.5 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 transition">
                     <Edit2 size={12} />
                   </button>
@@ -114,11 +115,14 @@ export default function CategoriesManager() {
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-3">
-                  <Grid className="text-gray-400" size={20} />
+                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-3 overflow-hidden border border-gray-100">
+                  {cat.icon && cat.icon.startsWith('http') ? (
+                    <img src={cat.icon} alt={cat.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Grid className="text-gray-400" size={24} />
+                  )}
                 </div>
                 <p className="font-bold text-sm text-center text-gray-800">{cat.name}</p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider">{cat.icon}</p>
               </>
             )}
           </div>
