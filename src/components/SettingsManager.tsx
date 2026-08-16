@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { CreditCard, Save } from 'lucide-react';
+import { CreditCard, Save, Percent } from 'lucide-react';
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function SettingsManager() {
-  const [settings, setSettings] = useState<any>({ paymentsEnabled: true });
+  const [settings, setSettings] = useState<any>({ 
+    paymentsEnabled: true,
+    bookingFeePercentage: 5
+  });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -16,7 +19,8 @@ export default function SettingsManager() {
         const data = snap.data();
         setSettings({
           ...data,
-          paymentsEnabled: data.paymentsEnabled ?? data.paymentEnabled ?? true
+          paymentsEnabled: data.paymentsEnabled ?? data.paymentEnabled ?? true,
+          bookingFeePercentage: data.bookingFeePercentage ?? 5
         });
       }
     });
@@ -58,7 +62,8 @@ export default function SettingsManager() {
       const payload = {
         ...settings,
         paymentsEnabled: !!settings.paymentsEnabled,
-        paymentEnabled: !!settings.paymentsEnabled
+        paymentEnabled: !!settings.paymentsEnabled,
+        bookingFeePercentage: Number(settings.bookingFeePercentage) || 5
       };
       await saveSettingsToStore(payload);
       alert('Global settings saved successfully!');
@@ -73,12 +78,13 @@ export default function SettingsManager() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-black text-gray-800">Global Settings</h2>
-        <p className="text-sm text-gray-500 mt-1">Configure platform-wide rules and behaviors.</p>
+        <p className="text-sm text-gray-500 mt-1">Configure platform-wide financial rules and payment behaviors.</p>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 max-w-2xl">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">Financial Controls</h3>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 max-w-2xl space-y-6">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Financial & Commission Controls</h3>
         
+        {/* Razorpay Gateway Toggle */}
         <div className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-gray-50">
           <div className="flex items-center gap-4">
             <div className={`p-3 rounded-xl ${settings.paymentsEnabled ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
@@ -88,8 +94,8 @@ export default function SettingsManager() {
               <p className="font-bold text-gray-800 text-lg">Razorpay Payments Gateway</p>
               <p className="text-xs text-gray-500 max-w-sm mt-1">
                 {settings.paymentsEnabled 
-                  ? 'Payments are ENABLED. Users will complete Razorpay payment for bookings & unlocks.' 
-                  : 'Payments are DISABLED. The frontend will bypass payment and grant instant free bookings & unlocks.'}
+                  ? 'Payments are ENABLED. Users will complete Razorpay checkout for booking advance fees.' 
+                  : 'Payments are DISABLED. Frontend will bypass payment and grant instant free bookings.'}
               </p>
             </div>
           </div>
@@ -103,7 +109,47 @@ export default function SettingsManager() {
           </button>
         </div>
 
-        <div className="mt-8 flex justify-end pt-6 border-t border-gray-100">
+        {/* Booking Advance Charge Percentage Control */}
+        <div className="p-4 border border-gray-100 rounded-xl bg-gray-50 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-purple-100 text-purple-600">
+                <Percent size={24} />
+              </div>
+              <div>
+                <p className="font-bold text-gray-800 text-base">Booking Advance Charge (%)</p>
+                <p className="text-xs text-gray-500">
+                  Percentage of cumulative service total collected as booking deposit on Razorpay.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm font-extrabold text-lg text-brand-primary">
+              <span>{settings.bookingFeePercentage || 5}%</span>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center gap-4">
+            <input 
+              type="range"
+              min="1"
+              max="50"
+              step="1"
+              value={settings.bookingFeePercentage || 5}
+              onChange={e => setSettings({ ...settings, bookingFeePercentage: Number(e.target.value) })}
+              className="w-full accent-brand-primary cursor-pointer h-2 bg-gray-200 rounded-lg"
+            />
+            <input 
+              type="number"
+              min="1"
+              max="100"
+              value={settings.bookingFeePercentage || 5}
+              onChange={e => setSettings({ ...settings, bookingFeePercentage: Number(e.target.value) })}
+              className="w-20 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-sm font-bold text-center outline-none focus:border-brand-primary"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t border-gray-100">
           <button 
             type="button"
             onClick={handleSave} 

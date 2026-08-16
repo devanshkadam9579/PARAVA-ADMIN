@@ -187,7 +187,18 @@ export default function VendorsManager() {
                         <img src={vendor.image || vendor.images?.[0] || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200 border border-gray-100" />
                         <div>
                           <p>{vendor.name}</p>
-                          <p className="text-[10px] text-gray-400 font-normal">{vendor.email || vendor.phone || 'No contact provided'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-gray-400 font-mono">ID: {vendor.id}</span>
+                            <a 
+                              href={`http://localhost:5173/?vendor=${vendor.id}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-[9px] font-bold text-brand-primary hover:underline bg-brand-primary/10 px-1.5 py-0.5 rounded"
+                            >
+                              Open Portal ↗
+                            </a>
+                          </div>
                         </div>
                       </div>
                     </td>
