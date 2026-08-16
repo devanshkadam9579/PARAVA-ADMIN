@@ -8,6 +8,7 @@ export default function PromosManager() {
   const [newTitle, setNewTitle] = useState('');
   const [newSubtitle, setNewSubtitle] = useState('');
   const [newImage, setNewImage] = useState('');
+  const [newBadge, setNewBadge] = useState('Featured Offer');
   const [newActionText, setNewActionText] = useState('Explore Now');
 
   useEffect(() => {
@@ -25,18 +26,23 @@ export default function PromosManager() {
     try {
       const db = getDb();
       await setDoc(doc(db, 'promos', customId), {
-        title: newTitle,
-        subtitle: newSubtitle,
-        image: newImage,
-        actionText: newActionText
+        id: customId,
+        title: newTitle.trim(),
+        subtitle: newSubtitle.trim(),
+        image: newImage.trim(),
+        badge: newBadge.trim() || 'Featured Offer',
+        gradient: 'from-pink-500/80 to-purple-600/80',
+        tag: 'Celebration',
+        actionText: newActionText.trim() || 'Explore Now'
       });
       setNewTitle('');
       setNewSubtitle('');
       setNewImage('');
+      setNewBadge('Featured Offer');
       setNewActionText('Explore Now');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Error adding promo');
+      alert(`Error adding promo: ${e?.message || e}`);
     }
   };
 
@@ -45,9 +51,9 @@ export default function PromosManager() {
     try {
       const db = getDb();
       await deleteDoc(doc(db, 'promos', id));
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to delete');
+      alert(`Failed to delete: ${e?.message || e}`);
     }
   };
 
@@ -80,6 +86,24 @@ export default function PromosManager() {
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
           </div>
+          <div>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Badge Text</label>
+            <input 
+              type="text" 
+              value={newBadge}
+              onChange={e => setNewBadge(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Button Action Text</label>
+            <input 
+              type="text" 
+              value={newActionText}
+              onChange={e => setNewActionText(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+            />
+          </div>
           <div className="md:col-span-2">
             <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Image URL</label>
             <input 
@@ -91,18 +115,11 @@ export default function PromosManager() {
               required
             />
           </div>
-          <div>
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Button Text</label>
-            <input 
-              type="text" 
-              value={newActionText}
-              onChange={e => setNewActionText(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
-            />
+          <div className="md:col-span-2 flex justify-end">
+            <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2">
+              <Plus size={16} /> Publish Banner
+            </button>
           </div>
-          <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2">
-            <Plus size={16} /> Publish Banner
-          </button>
         </form>
       </div>
 
@@ -113,10 +130,15 @@ export default function PromosManager() {
               <img src={promo.image} alt={promo.title} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
               <div className="absolute inset-0 p-6 flex flex-col justify-center">
+                {promo.badge && (
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md text-white px-2 py-0.5 rounded-full w-fit mb-1">
+                    {promo.badge}
+                  </span>
+                )}
                 <h4 className="text-white font-black text-xl leading-tight">{promo.title}</h4>
                 {promo.subtitle && <p className="text-white/80 text-xs mt-1">{promo.subtitle}</p>}
                 <div className="mt-3 inline-block bg-white/20 backdrop-blur-md border border-white/40 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full w-fit">
-                  {promo.actionText}
+                  {promo.actionText || 'Explore Now'}
                 </div>
               </div>
             </div>

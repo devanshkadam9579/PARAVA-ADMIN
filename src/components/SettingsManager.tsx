@@ -11,24 +11,47 @@ export default function SettingsManager() {
     const db = getDb();
     const unsub = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
       if (snap.exists()) {
-        setSettings(snap.data());
+        const data = snap.data();
+        setSettings({
+          ...data,
+          paymentsEnabled: data.paymentsEnabled ?? data.paymentEnabled ?? true
+        });
       }
     });
     return unsub;
   }, []);
 
-  const handleTogglePayments = () => {
-    setSettings((prev: any) => ({ ...prev, paymentsEnabled: !prev.paymentsEnabled }));
+  const handleTogglePayments = async () => {
+    const nextState = !settings.paymentsEnabled;
+    const updated = {
+      ...settings,
+      paymentsEnabled: nextState,
+      paymentEnabled: nextState
+    };
+    setSettings(updated);
+
+    // Auto-save toggle change immediately to Firestore
+    try {
+      const db = getDb();
+      await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
+    } catch (e: any) {
+      console.error('Error toggling payment state:', e);
+    }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const db = getDb();
-      await setDoc(doc(db, 'settings', 'global'), settings, { merge: true });
+      const payload = {
+        ...settings,
+        paymentsEnabled: !!settings.paymentsEnabled,
+        paymentEnabled: !!settings.paymentsEnabled
+      };
+      await setDoc(doc(db, 'settings', 'global'), payload, { merge: true });
       alert('Global settings saved successfully!');
-    } catch (e) {
-      alert('Failed to save settings');
+    } catch (e: any) {
+      alert(`Failed to save settings: ${e?.message || e}`);
     } finally {
       setSaving(false);
     }
@@ -52,14 +75,17 @@ export default function SettingsManager() {
             <div>
               <p className="font-bold text-gray-800 text-lg">Razorpay Payments Gateway</p>
               <p className="text-xs text-gray-500 max-w-sm mt-1">
-                If disabled, the frontend will bypass the payment screen and treat all bookings as free or pay-later.
+                {settings.paymentsEnabled 
+                  ? 'Payments are ENABLED. Users will complete Razorpay payment for bookings & unlocks.' 
+                  : 'Payments are DISABLED. The frontend will bypass payment and grant instant free bookings & unlocks.'}
               </p>
             </div>
           </div>
           
           <button 
+            type="button"
             onClick={handleTogglePayments}
-            className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors ${settings.paymentsEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
+            className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors cursor-pointer ${settings.paymentsEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
           >
             <div className={`w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${settings.paymentsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
           </button>
@@ -67,6 +93,7 @@ export default function SettingsManager() {
 
         <div className="mt-8 flex justify-end pt-6 border-t border-gray-100">
           <button 
+            type="button"
             onClick={handleSave} 
             disabled={saving}
             className="bg-brand-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-brand-primary-dark transition flex items-center gap-2 disabled:opacity-50"
