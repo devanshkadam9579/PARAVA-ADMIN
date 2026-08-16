@@ -39,55 +39,61 @@ export default function CategoriesManager() {
       image: imageUrl
     };
 
+    // Helper to call backend Admin SDK API (bypasses Firestore Security Rules)
+    const callBackendAdd = async () => {
+      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewCatName('');
+        setNewCatIcon('');
+        setNewCatImage('');
+      } else {
+        alert(`Error adding category: ${data.error}`);
+      }
+    };
+
     try {
-      // 1. Try client-side Firestore SDK
       const db = getDb();
       await setDoc(doc(db, 'categories', customId), payload);
       setNewCatName('');
       setNewCatIcon('');
       setNewCatImage('');
     } catch (e: any) {
-      console.warn("Client SDK failed, attempting backend Admin SDK fallback:", e?.message || e);
+      console.warn("Client SDK setDoc failed, executing backend Admin SDK:", e?.message || e);
       try {
-        // 2. Resilient fallback to backend Admin SDK endpoint (bypasses Firestore Security Rules)
-        const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          setNewCatName('');
-          setNewCatIcon('');
-          setNewCatImage('');
-        } else {
-          alert(`Error adding category: ${data.error}`);
-        }
+        await callBackendAdd();
       } catch (backendErr: any) {
-        alert(`Error adding category: ${e?.message || e}`);
+        alert(`Error adding category: ${backendErr?.message || backendErr}`);
       }
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm(`Delete category "${id}"?`)) return;
+
+    const callBackendDelete = async () => {
+      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories/${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(`Failed to delete: ${data.error}`);
+      }
+    };
+
     try {
-      // 1. Try client SDK
       const db = getDb();
       await deleteDoc(doc(db, 'categories', id));
     } catch (e: any) {
-      console.warn("Client SDK delete failed, attempting backend Admin SDK fallback:", e?.message || e);
+      console.warn("Client SDK deleteDoc failed, executing backend Admin SDK:", e?.message || e);
       try {
-        // 2. Resilient fallback to backend API
-        const res = await fetch(`${BACKEND_API_URL}/api/admin/categories/${id}`, {
-          method: 'DELETE'
-        });
-        const data = await res.json();
-        if (!data.success) {
-          alert(`Failed to delete: ${data.error}`);
-        }
+        await callBackendDelete();
       } catch (backendErr: any) {
-        alert(`Failed to delete: ${e?.message || e}`);
+        alert(`Failed to delete category: ${backendErr?.message || backendErr}`);
       }
     }
   };
@@ -110,26 +116,30 @@ export default function CategoriesManager() {
       image: editImage || defaultImage
     };
 
+    const callBackendSave = async () => {
+      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditingId(null);
+      } else {
+        alert(`Failed to update category: ${data.error}`);
+      }
+    };
+
     try {
       const db = getDb();
       await updateDoc(doc(db, 'categories', editingId), payload);
       setEditingId(null);
     } catch (e: any) {
-      console.warn("Client SDK update failed, attempting backend Admin SDK fallback:", e?.message || e);
+      console.warn("Client SDK updateDoc failed, executing backend Admin SDK:", e?.message || e);
       try {
-        const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          setEditingId(null);
-        } else {
-          alert(`Failed to update category: ${data.error}`);
-        }
+        await callBackendSave();
       } catch (backendErr: any) {
-        alert(`Failed to update category: ${e?.message || e}`);
+        alert(`Failed to update category: ${backendErr?.message || backendErr}`);
       }
     }
   };
