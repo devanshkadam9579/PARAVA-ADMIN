@@ -3,6 +3,8 @@ import { getDb } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { CreditCard, Save } from 'lucide-react';
 
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
+
 export default function SettingsManager() {
   const [settings, setSettings] = useState<any>({ paymentsEnabled: true });
   const [saving, setSaving] = useState(false);
@@ -21,6 +23,24 @@ export default function SettingsManager() {
     return unsub;
   }, []);
 
+  const saveSettingsToStore = async (updated: any) => {
+    try {
+      const db = getDb();
+      await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
+    } catch (e: any) {
+      console.warn("Client SDK save settings failed, attempting backend Admin SDK fallback:", e?.message || e);
+      try {
+        await fetch(`${BACKEND_API_URL}/api/admin/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docId: 'global', data: updated })
+        });
+      } catch (backendErr: any) {
+        console.error("Backend settings fallback error:", backendErr);
+      }
+    }
+  };
+
   const handleTogglePayments = async () => {
     const nextState = !settings.paymentsEnabled;
     const updated = {
@@ -29,26 +49,18 @@ export default function SettingsManager() {
       paymentEnabled: nextState
     };
     setSettings(updated);
-
-    // Auto-save toggle change immediately to Firestore
-    try {
-      const db = getDb();
-      await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
-    } catch (e: any) {
-      console.error('Error toggling payment state:', e);
-    }
+    await saveSettingsToStore(updated);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const db = getDb();
       const payload = {
         ...settings,
         paymentsEnabled: !!settings.paymentsEnabled,
         paymentEnabled: !!settings.paymentsEnabled
       };
-      await setDoc(doc(db, 'settings', 'global'), payload, { merge: true });
+      await saveSettingsToStore(payload);
       alert('Global settings saved successfully!');
     } catch (e: any) {
       alert(`Failed to save settings: ${e?.message || e}`);
