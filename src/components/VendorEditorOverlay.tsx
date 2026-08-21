@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { X, Save, Image as ImageIcon, MapPin, Phone, Link as LinkIcon, DollarSign, Award, ShieldCheck, User, Video } from 'lucide-react';
 
 interface VendorEditorOverlayProps {
@@ -10,6 +10,16 @@ interface VendorEditorOverlayProps {
 
 export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOverlayProps) {
   const isEdit = !!vendor;
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const db = getDb();
+    const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
+      setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
   const [formData, setFormData] = useState<any>({
     vendorPortalId: `PARVA-VEN-${Date.now()}`,
     name: '',
@@ -177,14 +187,9 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" 
                 />
                 <datalist id="vendor-categories">
-                  <option value="Venues" />
-                  <option value="Decorators" />
-                  <option value="Photographers" />
-                  <option value="Catering" />
-                  <option value="Makeup Artists" />
-                  <option value="Event Planners" />
-                  <option value="DJs & Entertainment" />
-                  <option value="Invitations" />
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.name} />
+                  ))}
                 </datalist>
               </div>
               <div>
