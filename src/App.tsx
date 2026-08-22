@@ -14,6 +14,7 @@ import UsersManager from './components/UsersManager';
 import LeadsManager from './components/LeadsManager';
 import SettingsManager from './components/SettingsManager';
 import CouponsManager from './components/CouponsManager';
+import CouponsManager from './components/CouponsManager';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -176,6 +177,7 @@ export default function App() {
           {activeTab === 'promos' && <PromosManager />}
           {activeTab === 'coupons' && <CouponsManager />}
           {activeTab === 'settings' && <SettingsManager />}
+          {activeTab === 'coupons' && <CouponsManager />}
         </div>
       </main>
     </div>

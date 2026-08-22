@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { Ticket, Plus, Trash2, Percent } from 'lucide-react';
+import { collection, onSnapshot, doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { Trash2, Plus, Tag } from 'lucide-react';
 
 export default function CouponsManager() {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [newCode, setNewCode] = useState('');
-  const [newDiscount, setNewDiscount] = useState('');
-  const [newType, setNewType] = useState('flat'); // flat or percentage
-  const [newMessage, setNewMessage] = useState('');
+  const [newDiscountType, setNewDiscountType] = useState<'flat' | 'percentage'>('flat');
+  const [newDiscountValue, setNewDiscountValue] = useState(0);
 
   useEffect(() => {
     const db = getDb();
@@ -20,25 +19,21 @@ export default function CouponsManager() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCode || !newDiscount) return;
-    
+    const code = newCode.trim().toUpperCase();
+    if (!code || newDiscountValue <= 0) return;
     try {
       const db = getDb();
-      const codeId = newCode.toUpperCase().replace(/\s+/g, '');
-      await setDoc(doc(db, 'coupons', codeId), {
-        code: codeId,
-        discount: Number(newDiscount),
-        type: newType,
-        message: newMessage || `Coupon applied successfully!`,
-        active: true,
-        createdAt: new Date().toISOString()
+      await setDoc(doc(db, 'coupons', code), {
+        code,
+        discountType: newDiscountType,
+        discountValue: Number(newDiscountValue),
+        active: true
       });
-      
       setNewCode('');
-      setNewDiscount('');
-      setNewMessage('');
-    } catch (err) {
-      alert('Failed to add coupon');
+      setNewDiscountValue(0);
+    } catch (e: any) {
+      console.error(e);
+      alert(`Error adding coupon: ${e?.message || e}`);
     }
   };
 
@@ -47,69 +42,93 @@ export default function CouponsManager() {
     try {
       const db = getDb();
       await deleteDoc(doc(db, 'coupons', id));
-    } catch (e) {
-      alert('Failed to delete coupon');
+    } catch (e: any) {
+      console.error(e);
+      alert(`Failed to delete: ${e?.message || e}`);
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-gray-800">Coupons & Promos</h2>
-        <p className="text-sm text-gray-500 mt-1">Manage discount codes for customers.</p>
+        <h2 className="text-2xl font-black text-gray-800">Manage Coupons</h2>
+        <p className="text-sm text-gray-500 mt-1">Create and manage discount codes for checkout.</p>
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Create New Coupon</h3>
-        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Create New Coupon</h3>
+        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div className="md:col-span-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Code *</label>
-            <input required type="text" placeholder="e.g. WELCOME50" value={newCode} onChange={e => setNewCode(e.target.value.toUpperCase())} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary uppercase" />
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Coupon Code</label>
+            <input 
+              type="text" 
+              value={newCode}
+              onChange={e => setNewCode(e.target.value)}
+              placeholder="e.g. WELCOME50"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary uppercase"
+              required
+            />
           </div>
           <div className="md:col-span-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Discount Amount *</label>
-            <input required type="number" placeholder="50" value={newDiscount} onChange={e => setNewDiscount(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
-          </div>
-          <div className="md:col-span-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Type *</label>
-            <select value={newType} onChange={e => setNewType(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary">
-              <option value="flat">Flat (₹)</option>
-              <option value="percentage">Percent (%)</option>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Discount Type</label>
+            <select 
+              value={newDiscountType}
+              onChange={e => setNewDiscountType(e.target.value as any)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+            >
+              <option value="flat">Flat Amount (₹)</option>
+              <option value="percentage">Percentage (%)</option>
             </select>
           </div>
-          <div className="md:col-span-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Success Message (Optional)</label>
-            <div className="flex gap-2">
-              <input type="text" placeholder="e.g. ₹50 flat discount applied!" value={newMessage} onChange={e => setNewMessage(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
-              <button type="submit" className="bg-brand-primary text-white h-[42px] px-5 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-1 min-w-fit">
-                <Plus size={16} /> Create
-              </button>
-            </div>
+          <div className="md:col-span-1">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Discount Value</label>
+            <input 
+              type="number" 
+              min="1"
+              value={newDiscountValue}
+              onChange={e => setNewDiscountValue(Number(e.target.value))}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+              required
+            />
+          </div>
+          <div className="md:col-span-1">
+            <button type="submit" className="w-full bg-brand-primary text-white h-[42px] px-4 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2">
+              <Plus size={16} /> Create Coupon
+            </button>
           </div>
         </form>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {coupons.map(coupon => (
-          <div key={coupon.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm relative overflow-hidden group">
-            <div className="absolute -right-4 -top-4 w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center">
-              {coupon.type === 'flat' ? <Ticket className="text-brand-primary/40" size={24} /> : <Percent className="text-brand-primary/40" size={24} />}
-            </div>
-            
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="text-2xl font-black text-brand-primary">{coupon.code}</h4>
-                <button onClick={() => handleDelete(coupon.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100">
-                  <Trash2 size={16} />
-                </button>
+          <div key={coupon.id} className="bg-white rounded-2xl shadow-sm border border-brand-primary/20 p-5 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-brand-primary/10 rounded-bl-[100px] -z-0" />
+            <div className="relative z-10 flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Tag size={14} className="text-brand-primary" />
+                  <h4 className="text-brand-primary-dark font-black text-lg tracking-wide">{coupon.code}</h4>
+                </div>
+                <p className="text-gray-600 font-medium text-sm">
+                  {coupon.discountType === 'flat' 
+                    ? `₹${coupon.discountValue} OFF` 
+                    : `${coupon.discountValue}% OFF (Advance Only)`}
+                </p>
               </div>
-              <p className="text-sm font-bold text-gray-800">
-                {coupon.type === 'flat' ? `₹${coupon.discount} Flat Off` : `${coupon.discount}% Off`}
-              </p>
-              <p className="text-xs text-gray-500 mt-2 line-clamp-2">{coupon.message}</p>
+              <button 
+                onClick={() => handleDelete(coupon.id)}
+                className="text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition"
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
           </div>
         ))}
+        {coupons.length === 0 && (
+          <div className="col-span-3 text-center py-10 bg-gray-50 rounded-2xl border border-gray-200 border-dashed">
+            <p className="text-gray-400 font-bold text-sm">No coupons found.</p>
+          </div>
+        )}
       </div>
     </div>
   );
