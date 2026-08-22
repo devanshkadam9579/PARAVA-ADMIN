@@ -360,7 +360,7 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
             </h3>
             <CalendarBlocker 
               busyDates={formData.busyDates || []} 
-              onChange={(dates) => setFormData(prev => ({ ...prev, busyDates: dates }))} 
+              onChange={(dates) => setFormData((prev: any) => ({ ...prev, busyDates: dates }))} 
             />
           </section>
 
