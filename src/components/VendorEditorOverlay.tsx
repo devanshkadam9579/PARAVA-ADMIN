@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { doc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+import CalendarBlocker from './CalendarBlocker';
 import { X, Save, Image as ImageIcon, MapPin, Phone, Link as LinkIcon, DollarSign, Award, ShieldCheck, User, Video } from 'lucide-react';
 
 interface VendorEditorOverlayProps {
@@ -49,7 +50,8 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     trustScore: '90',
     regionRank: '0',
     approved: false,
-    services: []
+    services: [],
+    busyDates: []
   });
 
   const [newService, setNewService] = useState({ name: '', price: '', unit: 'event', description: '', image: '' });
@@ -76,7 +78,8 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         image5: vendor.images?.[4] || '',
         regionRank: vendor.regionRank || '0',
         trustScore: vendor.trustScore || '90',
-        services: vendor.services || []
+        services: vendor.services || [],
+        busyDates: vendor.busyDates || []
       });
     }
   }, [vendor]);
@@ -347,6 +350,18 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                 <label htmlFor="approved" className="text-sm font-bold text-gray-700">Vendor is Approved & Publicly Visible</label>
               </div>
             </div>
+          </section>
+
+          
+          {/* Section: Operational Schedule */}
+          <section>
+            <h3 className="text-xs font-bold text-red-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Award size={14} /> Operational Schedule Manager
+            </h3>
+            <CalendarBlocker 
+              busyDates={formData.busyDates || []} 
+              onChange={(dates) => setFormData(prev => ({ ...prev, busyDates: dates }))} 
+            />
           </section>
 
           {/* Section: Services Builder */}
