@@ -1,165 +1,167 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Save, CreditCard } from 'lucide-react';
 import { getDb } from '../lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { CreditCard, Save, Percent } from 'lucide-react';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function SettingsManager() {
-  const [settings, setSettings] = useState<any>({ 
-    paymentsEnabled: true,
-    bookingFeePercentage: 5
-  });
-  const [saving, setSaving] = useState(false);
+  const [commissionPct, setCommissionPct] = useState<number>(10);
+  const [fixedFee, setFixedFee] = useState<number>(0);
+  const [supportEmail, setSupportEmail] = useState('support@parvaevents.com');
+  const [termsVersion, setTermsVersion] = useState('1.2');
+  const [paymentsEnabled, setPaymentsEnabled] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    const db = getDb();
-    const unsub = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setSettings({
-          ...data,
-          paymentsEnabled: data.paymentsEnabled ?? data.paymentEnabled ?? true,
-          bookingFeePercentage: data.bookingFeePercentage ?? 5
-        });
+    const fetchSettings = async () => {
+      try {
+        const db = getDb();
+        const snap = await getDoc(doc(db, 'settings', 'global'));
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d.commissionPercentage !== undefined) setCommissionPct(Number(d.commissionPercentage));
+          if (d.fixedCommissionFee !== undefined) setFixedFee(Number(d.fixedCommissionFee));
+          if (d.supportEmail) setSupportEmail(d.supportEmail);
+          if (d.termsVersion) setTermsVersion(d.termsVersion);
+          if (d.paymentsEnabled !== undefined) setPaymentsEnabled(d.paymentsEnabled);
+        }
+      } catch (e) {
+        console.error("Error loading settings:", e);
       }
-    });
-    return unsub;
+    };
+    fetchSettings();
   }, []);
 
-  const saveSettingsToStore = async (updated: any) => {
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
     try {
       const db = getDb();
-      await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
-    } catch (e: any) {
-      console.warn("Client SDK save settings failed, attempting backend Admin SDK fallback:", e?.message || e);
-      try {
-        await fetch(`${BACKEND_API_URL}/api/admin/settings`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docId: 'global', data: updated })
-        });
-      } catch (backendErr: any) {
-        console.error("Backend settings fallback error:", backendErr);
-      }
-    }
-  };
+      await setDoc(doc(db, 'settings', 'global'), {
+        commissionPercentage: commissionPct,
+        fixedCommissionFee: fixedFee,
+        supportEmail,
+        termsVersion,
+        paymentsEnabled,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
 
-  const handleTogglePayments = async () => {
-    const nextState = !settings.paymentsEnabled;
-    const updated = {
-      ...settings,
-      paymentsEnabled: nextState,
-      paymentEnabled: nextState
-    };
-    setSettings(updated);
-    await saveSettingsToStore(updated);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload = {
-        ...settings,
-        paymentsEnabled: !!settings.paymentsEnabled,
-        paymentEnabled: !!settings.paymentsEnabled,
-        bookingFeePercentage: Number(settings.bookingFeePercentage) || 5
-      };
-      await saveSettingsToStore(payload);
-      alert('Global settings saved successfully!');
-    } catch (e: any) {
-      alert(`Failed to save settings: ${e?.message || e}`);
+      setNotification('✨ Settings, Commission & Payment Mode saved successfully!');
+    } catch (err: any) {
+      setNotification(`❌ Failed: ${err.message}`);
     } finally {
-      setSaving(false);
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-gray-800">Global Settings</h2>
-        <p className="text-sm text-gray-500 mt-1">Configure platform-wide financial rules and payment behaviors.</p>
+    <div className="space-y-6 max-w-3xl">
+      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <Settings size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Platform Policies, Commission & Payment Gateway</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Configure marketplace rules, commission rates, and Razorpay gateway mode</p>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 max-w-2xl space-y-6">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Financial & Commission Controls</h3>
-        
-        {/* Razorpay Gateway Toggle */}
-        <div className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-gray-50">
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${settings.paymentsEnabled ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-              <CreditCard size={24} />
-            </div>
-            <div>
-              <p className="font-bold text-gray-800 text-lg">Razorpay Payments Gateway</p>
-              <p className="text-xs text-gray-500 max-w-sm mt-1">
-                {settings.paymentsEnabled 
-                  ? 'Payments are ENABLED. Users will complete Razorpay checkout for booking advance fees.' 
-                  : 'Payments are DISABLED. Frontend will bypass payment and grant instant free bookings.'}
-              </p>
-            </div>
+      {notification && (
+        <div className="p-4 rounded-2xl bg-slate-900 text-white text-xs font-bold shadow-lg animate-in fade-in">
+          {notification}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-xs space-y-5">
+        {/* Payment Gateway Switch */}
+        <div className="bg-indigo-50/60 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <CreditCard size={18} className="text-indigo-600" />
+              <span>Online Payment Gateway (Razorpay) Mode</span>
+            </h4>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {paymentsEnabled 
+                ? "Active: Users pay advance connection/booking fee via Razorpay" 
+                : "Direct Mode: Users confirm booking directly without online payment requirement"}
+            </p>
           </div>
-          
-          <button 
+          <button
             type="button"
-            onClick={handleTogglePayments}
-            className={`w-14 h-8 rounded-full flex items-center p-1 transition-colors cursor-pointer ${settings.paymentsEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
+            onClick={() => setPaymentsEnabled(!paymentsEnabled)}
+            className={`px-4 py-2 rounded-xl font-black text-xs transition active:scale-95 uppercase tracking-wider ${
+              paymentsEnabled 
+                ? 'bg-emerald-600 text-white shadow-sm' 
+                : 'bg-gray-200 text-gray-700'
+            }`}
           >
-            <div className={`w-6 h-6 bg-white rounded-full shadow-sm transform transition-transform ${settings.paymentsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+            {paymentsEnabled ? '✓ Enabled' : '✕ Disabled (Direct)'}
           </button>
         </div>
 
-        {/* Booking Advance Charge Percentage Control */}
-        <div className="p-4 border border-gray-100 rounded-xl bg-gray-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-purple-100 text-purple-600">
-                <Percent size={24} />
-              </div>
-              <div>
-                <p className="font-bold text-gray-800 text-base">Booking Advance Charge (%)</p>
-                <p className="text-xs text-gray-500">
-                  Percentage of cumulative service total collected as booking deposit on Razorpay.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm font-extrabold text-lg text-brand-primary">
-              <span>{settings.bookingFeePercentage || 5}%</span>
-            </div>
-          </div>
-
-          <div className="pt-2 flex items-center gap-4">
-            <input 
-              type="range"
-              min="1"
-              max="50"
-              step="1"
-              value={settings.bookingFeePercentage || 5}
-              onChange={e => setSettings({ ...settings, bookingFeePercentage: Number(e.target.value) })}
-              className="w-full accent-brand-primary cursor-pointer h-2 bg-gray-200 rounded-lg"
-            />
-            <input 
+        {/* Commission Settings */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Platform Commission Rate (%)</label>
+            <input
               type="number"
-              min="1"
-              max="100"
-              value={settings.bookingFeePercentage || 5}
-              onChange={e => setSettings({ ...settings, bookingFeePercentage: Number(e.target.value) })}
-              className="w-20 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-sm font-bold text-center outline-none focus:border-brand-primary"
+              min={0}
+              max={50}
+              value={commissionPct}
+              onChange={(e) => setCommissionPct(Number(e.target.value))}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
+            />
+            <span className="text-[10px] text-gray-400 mt-1 block">Default is 10% on gross booking value</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Fixed Service Fee (₹)</label>
+            <input
+              type="number"
+              min={0}
+              value={fixedFee}
+              onChange={(e) => setFixedFee(Number(e.target.value))}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
+            />
+            <span className="text-[10px] text-gray-400 mt-1 block">Additional fixed fee per booking</span>
+          </div>
+        </div>
+
+        {/* Support & Legal */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Official Support Email</label>
+            <input
+              type="email"
+              value={supportEmail}
+              onChange={(e) => setSupportEmail(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Legal Terms Version</label>
+            <input
+              type="text"
+              value={termsVersion}
+              onChange={(e) => setTermsVersion(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary font-mono"
             />
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-gray-100">
-          <button 
-            type="button"
-            onClick={handleSave} 
-            disabled={saving}
-            className="bg-brand-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-brand-primary-dark transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <Save size={16} /> {saving ? 'Saving...' : 'Save Global Settings'}
-          </button>
-        </div>
-      </div>
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="w-full bg-brand-primary hover:bg-brand-primary-dark disabled:opacity-50 text-white font-bold py-3.5 rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition active:scale-98 uppercase tracking-wider mt-4"
+        >
+          <Save size={16} />
+          <span>{isSaving ? 'Saving Settings...' : 'Save & Publish Platform Settings'}</span>
+        </button>
+      </form>
     </div>
   );
 }
