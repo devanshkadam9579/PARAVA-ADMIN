@@ -112,17 +112,17 @@ export default function App() {
   }
 
   const navItems = [
-    { id: 'dashboard', label: '📊 Dashboard & Financials', icon: <LayoutDashboard size={18} /> },
-    { id: 'email_logs', label: '📧 Resend Email Delivery', icon: <Mail size={18} /> },
-    { id: 'broadcast', label: '📢 Live Push Broadcaster', icon: <Radio size={18} /> },
-    { id: 'vendors', label: '🏛️ Vendors CRM & Approval', icon: <Building2 size={18} /> },
-    { id: 'leads', label: '📋 Customer Leads CSV', icon: <Inbox size={18} /> },
-    { id: 'categories', label: '✨ Categories (CRUD)', icon: <Grid size={18} /> },
-    { id: 'promos', label: '🏷️ Promotions & Banners', icon: <Tag size={18} /> },
-    { id: 'coupons', label: '🎟️ Coupons & Discounts', icon: <Ticket size={18} /> },
-    { id: 'cities', label: '🏙️ City Operations', icon: <MapPin size={18} /> },
-    { id: 'users', label: '👥 User Accounts', icon: <Users size={18} /> },
-    { id: 'settings', label: '⚙️ Policies & Gateway Mode', icon: <Settings size={18} /> },
+    { id: 'dashboard', label: 'Dashboard & Financials', icon: <LayoutDashboard size={18} /> },
+    { id: 'email_logs', label: 'Email Delivery Logs', icon: <Mail size={18} /> },
+    { id: 'broadcast', label: 'Live Push Broadcast', icon: <Radio size={18} /> },
+    { id: 'vendors', label: 'Vendors CRM', icon: <Building2 size={18} /> },
+    { id: 'leads', label: 'Customer Leads', icon: <Inbox size={18} /> },
+    { id: 'categories', label: 'Service Categories', icon: <Grid size={18} /> },
+    { id: 'promos', label: 'Promotions & Banners', icon: <Tag size={18} /> },
+    { id: 'coupons', label: 'Coupons & Discounts', icon: <Ticket size={18} /> },
+    { id: 'cities', label: 'City Operations', icon: <MapPin size={18} /> },
+    { id: 'users', label: 'User Accounts', icon: <Users size={18} /> },
+    { id: 'settings', label: 'Policies & Gateway Mode', icon: <Settings size={18} /> },
   ];
 
   return (

@@ -1,127 +1,224 @@
-import { useState, useEffect } from 'react';
-import { getDb } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { MapPin, Trash2, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search } from 'lucide-react';
+
+const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
+
+const ALL_FRONTEND_CITIES = [
+  'Kolhapur',
+  'Pune',
+  'Nagpur',
+  'Nashik',
+  'Mumbai',
+  'Delhi NCR',
+  'Bangalore',
+  'Hyderabad',
+  'Chennai',
+  'Kolkata',
+  'Jaipur',
+  'Ahmedabad',
+  'Lucknow',
+  'Satara',
+  'Sangli'
+];
 
 export default function CitiesManager() {
-  const [cities, setCities] = useState<any[]>([]);
+  const [cityList, setCityList] = useState<string[]>(ALL_FRONTEND_CITIES);
+  const [blockedCities, setBlockedCities] = useState<string[]>([]);
   const [newCityName, setNewCityName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const fetchCities = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/admin/cities`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.blockedCities)) {
+        setBlockedCities(data.blockedCities);
+      }
+    } catch (e) {
+      console.error("Error fetching city settings:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const db = getDb();
-    const unsub = onSnapshot(collection(db, 'cities'), (snap) => {
-      setCities(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return unsub;
+    fetchCities();
   }, []);
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const saveBlockedCities = async (updatedBlocked: string[]) => {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/admin/cities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blockedCities: updatedBlocked })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBlockedCities(updatedBlocked);
+        setNotification('City availability status updated successfully.');
+      }
+    } catch (err: any) {
+      setNotification(`Failed to update city status: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 3500);
+    }
+  };
+
+  const toggleCityStatus = (city: string) => {
+    const isCurrentlyBlocked = blockedCities.includes(city);
+    const updated = isCurrentlyBlocked
+      ? blockedCities.filter(c => c !== city)
+      : [...blockedCities, city];
+    saveBlockedCities(updated);
+  };
+
+  const handleAddCity = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCityName.trim()) return;
-    const cityId = newCityName.trim();
-    
-    try {
-      const db = getDb();
-      await setDoc(doc(db, 'cities', cityId), {
-        name: cityId,
-        active: true
-      });
-      setNewCityName('');
-    } catch (e) {
-      console.error(e);
-      alert('Error adding city');
+    const formatted = newCityName.trim();
+    if (!formatted) return;
+    if (!cityList.includes(formatted)) {
+      setCityList(prev => [...prev, formatted]);
+      setNotification(`Added ${formatted} to operational cities.`);
     }
+    setNewCityName('');
+    setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleToggle = async (city: any) => {
-    try {
-      const db = getDb();
-      await setDoc(doc(db, 'cities', city.id), {
-        ...city,
-        active: !city.active
-      });
-    } catch (e) {
-      console.error(e);
-      alert('Error toggling city status');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(`Delete city "${id}"?`)) return;
-    try {
-      const db = getDb();
-      await deleteDoc(doc(db, 'cities', id));
-    } catch (e) {
-      console.error(e);
-      alert('Error deleting city');
-    }
-  };
+  const filteredCities = cityList.filter(c =>
+    c.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  );
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center">
-          <MapPin size={24} className="text-brand-primary" />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-800 flex items-center justify-center font-bold">
+            <MapPin size={22} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">City Operations & Operational Availability</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Manage operational status for all cities listed on the customer app ({cityList.length} total)
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-black text-brand-text tracking-tight">Active Cities</h1>
-          <p className="text-sm text-brand-text-secondary mt-1">Manage locations where PARVA is operational.</p>
-        </div>
+
+        <button
+          onClick={fetchCities}
+          disabled={isLoading}
+          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95"
+        >
+          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+          <span>Refresh</span>
+        </button>
       </div>
 
-      <div className="bg-white rounded-[32px] p-8 shadow-xl shadow-brand-primary/5 border border-brand-border">
-        <form onSubmit={handleAdd} className="flex gap-4 mb-8">
-          <input
-            type="text"
-            placeholder="Enter new city name (e.g. Kolhapur)..."
-            value={newCityName}
-            onChange={(e) => setNewCityName(e.target.value)}
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-sm outline-none focus:border-brand-primary transition-colors"
-          />
-          <button
-            type="submit"
-            className="bg-brand-primary text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center gap-2 hover:bg-brand-primary-dark transition-colors shadow-lg shadow-brand-primary/20"
-          >
-            <Plus size={18} /> Add City
-          </button>
-        </form>
+      {notification && (
+        <div className="p-4 rounded-2xl bg-slate-900 text-white text-xs font-bold shadow-lg animate-in fade-in">
+          {notification}
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {cities.map((city) => (
-            <div key={city.id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 bg-gray-50/50 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${city.active ? 'bg-brand-success' : 'bg-red-400'}`} />
-                <div>
-                  <h3 className="font-bold text-gray-800">{city.name}</h3>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-                    {city.active ? 'Live on App' : 'Blocked'}
-                  </span>
+      {/* City Controls and Add Form */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-center">
+            <div className="relative w-full sm:w-72">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search operational city..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 text-xs font-bold text-gray-600">
+              <span className="flex items-center gap-1 text-emerald-600">
+                <CheckCircle size={14} /> Active ({cityList.length - blockedCities.length})
+              </span>
+              <span className="flex items-center gap-1 text-rose-600">
+                <Ban size={14} /> Inactive ({blockedCities.length})
+              </span>
+            </div>
+          </div>
+
+          {/* Cities Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2">
+            {filteredCities.map((city) => {
+              const isBlocked = blockedCities.includes(city);
+              return (
+                <div
+                  key={city}
+                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between ${
+                    isBlocked
+                      ? 'bg-rose-50/70 border-rose-200 text-rose-900'
+                      : 'bg-white border-gray-200 hover:border-gray-300 text-gray-900'
+                  }`}
+                >
+                  <div>
+                    <h4 className="font-bold text-xs">{city}</h4>
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider block mt-0.5 ${
+                      isBlocked ? 'text-rose-600' : 'text-emerald-600'
+                    }`}>
+                      {isBlocked ? 'Disabled on App' : 'Active & Operational'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => toggleCityStatus(city)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition active:scale-95 border ${
+                      isBlocked
+                        ? 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+                        : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                    }`}
+                  >
+                    {isBlocked ? 'Enable' : 'Disable'}
+                  </button>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggle(city)}
-                  className={`p-2 rounded-xl transition-colors ${city.active ? 'text-brand-success hover:bg-brand-success/10' : 'text-gray-400 hover:bg-gray-200'}`}
-                  title={city.active ? 'Deactivate' : 'Activate'}
-                >
-                  {city.active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                </button>
-                <button
-                  onClick={() => handleDelete(city.id)}
-                  className="p-2 rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                  title="Delete City"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Add Custom City Form */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs space-y-4 h-fit">
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm">Add New Market / City</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Expand service availability to new cities</p>
+          </div>
+
+          <form onSubmit={handleAddCity} className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">City Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Surat, Indore, Goa"
+                value={newCityName}
+                onChange={(e) => setNewCityName(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
+              />
             </div>
-          ))}
-          {cities.length === 0 && (
-            <div className="col-span-2 text-center py-8 text-gray-400 text-sm">
-              No cities added yet.
-            </div>
-          )}
+
+            <button
+              type="submit"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
+            >
+              <Plus size={14} />
+              <span>Add City to Platform</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>
