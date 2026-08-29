@@ -1,3 +1,4 @@
+import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, setDoc } from 'firebase/firestore';
@@ -104,16 +105,24 @@ export default function PromosManager() {
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
             />
           </div>
-          <div className="md:col-span-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Image URL</label>
-            <input 
-              type="url" 
-              value={newImage}
-              onChange={e => setNewImage(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
-              required
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Banner Image (Camera / Gallery or URL)</label>
+            <CloudinaryImageUploader
+              label="📷 Upload Banner from Camera or Photo Library"
+              currentImageUrl={newImage}
+              onImageUploaded={(url) => setNewImage(url)}
             />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-400 font-bold uppercase">or URL:</span>
+              <input 
+                type="text" 
+                value={newImage}
+                onChange={e => setNewImage(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-xs font-mono outline-none focus:border-brand-primary"
+                required
+              />
+            </div>
           </div>
           <div className="md:col-span-2 flex justify-end">
             <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2">

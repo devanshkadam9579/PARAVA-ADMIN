@@ -1,3 +1,4 @@
+import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -151,24 +152,42 @@ export default function CategoriesManager() {
         <p className="text-sm text-gray-500 mt-1">Add, edit, or remove vendor service categories for Frontend & Admin.</p>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Add New Category</h3>
-        <form onSubmit={handleAdd} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-          <div className="w-full">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category Name</label>
-            <input required type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Wedding Planners" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
-          </div>
-          <div className="w-full">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Image URL</label>
-            <input type="url" value={newCatImage} onChange={e => setNewCatImage(e.target.value)} placeholder="https://... (PNG/JPG)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
-          </div>
-          <div className="w-full flex gap-2">
-            <div className="flex-1">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Icon Name</label>
-              <input type="text" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="e.g. Camera, Sparkles" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Add New Category</h3>
+        <form onSubmit={handleAdd} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Category Name *</label>
+              <input required type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Wedding Planners" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
             </div>
-            <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center gap-2 mt-[22px]">
-              <Plus size={16} /> Add
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Icon / Tag Name</label>
+              <input type="text" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="e.g. Camera, Sparkles, Building" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+            </div>
+          </div>
+
+          <div className="space-y-2 bg-gray-50/70 p-3.5 rounded-2xl border border-gray-200">
+            <label className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">Category SVG / Cover Image (Camera / Gallery or URL)</label>
+            <CloudinaryImageUploader
+              label="📷 Upload SVG / Icon / Photo from Camera or Gallery"
+              currentImageUrl={newCatImage}
+              onImageUploaded={(url) => setNewCatImage(url)}
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-400 font-bold uppercase">or URL:</span>
+              <input 
+                type="text" 
+                value={newCatImage} 
+                onChange={e => setNewCatImage(e.target.value)} 
+                placeholder="https://... (SVG/PNG/JPG Link)" 
+                className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-brand-primary" 
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button type="submit" className="bg-brand-primary text-white h-[42px] px-8 rounded-xl text-xs font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2 uppercase tracking-wider shadow-sm">
+              <Plus size={16} /> Add Category
             </button>
           </div>
         </form>

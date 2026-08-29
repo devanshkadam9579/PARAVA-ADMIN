@@ -1,3 +1,4 @@
+import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { doc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -234,11 +235,16 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Founder Role</label>
                 <input type="text" name="founderBio" value={formData.founderBio} onChange={handleChange} placeholder="e.g. 10 Years Experience" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
               </div>
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Founder Profile Image URL</label>
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Founder Profile Image (Camera / Gallery or URL)</label>
+                <CloudinaryImageUploader
+                  label="📷 Take Photo / Pick from Gallery"
+                  currentImageUrl={formData.founderImage}
+                  onImageUploaded={(url) => setFormData((prev: any) => ({ ...prev, founderImage: url }))}
+                />
                 <div className="relative">
                   <ImageIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="url" name="founderImage" value={formData.founderImage} onChange={handleChange} placeholder="https://..." className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                  <input type="url" name="founderImage" value={formData.founderImage} onChange={handleChange} placeholder="or paste URL https://..." className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs font-mono outline-none focus:border-brand-primary" />
                 </div>
               </div>
             </div>
@@ -258,13 +264,28 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                 </div>
               </div>
               
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Portfolio Images (Up to 5)</label>
+              <div className="col-span-2 space-y-3">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Portfolio Images (Camera / Gallery or URL)</label>
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map((num) => (
-                    <div key={num} className="flex gap-2">
-                      <span className="bg-gray-100 text-gray-400 font-bold text-xs w-8 flex items-center justify-center rounded-xl">{num}</span>
-                      <input type="url" name={`image${num}`} value={formData[`image${num}` as keyof typeof formData]} onChange={handleChange} placeholder={`Image URL ${num}`} className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary" />
+                    <div key={num} className="bg-gray-50/70 p-3 rounded-2xl border border-gray-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-700">Portfolio Photo #{num}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">Slot {num}</span>
+                      </div>
+                      <CloudinaryImageUploader
+                        label={`📷 Photo #${num} (Upload / Camera)`}
+                        currentImageUrl={formData[`image${num}` as keyof typeof formData]}
+                        onImageUploaded={(url) => setFormData((prev: any) => ({ ...prev, [`image${num}`]: url }))}
+                      />
+                      <input 
+                        type="url" 
+                        name={`image${num}`} 
+                        value={formData[`image${num}` as keyof typeof formData]} 
+                        onChange={handleChange} 
+                        placeholder={`or paste Image URL ${num} (https://...)`} 
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-brand-primary" 
+                      />
                     </div>
                   ))}
                 </div>
