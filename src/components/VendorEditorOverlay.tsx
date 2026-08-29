@@ -110,7 +110,7 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     busyDates: []
   });
 
-  const [newService, setNewService] = useState({ name: '', price: '', unit: 'event', description: '', image: '' });
+  const [newService, setNewService] = useState({ name: '', price: '', unit: 'per event', description: '', image: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -563,56 +563,127 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
             </div>
           </section>
 
-          {/* Section: Packages & Services */}
+          {/* Section: Packages & Custom Services with Image & Short Description */}
           <section className="space-y-4">
             <h3 className="text-xs font-black text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-              <Layers size={14} /> Packages & Custom Services ({formData.services?.length || 0})
+              <Layers size={14} /> Packages & Service Offerings ({formData.services?.length || 0})
             </h3>
             
             {/* Add new service form */}
-            <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-200 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="bg-gray-50/90 p-4 rounded-2xl border border-gray-200 space-y-3">
+              <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider block">Add New Service Item</span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Service Title *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Wedding Hall Stage & Mandap Decor"
+                    value={newService.name}
+                    onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-brand-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Price (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 30000"
+                    value={newService.price}
+                    onChange={(e) => setNewService({ ...newService, price: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Billing Unit</label>
+                  <select
+                    value={newService.unit}
+                    onChange={(e) => setNewService({ ...newService, unit: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-brand-primary"
+                  >
+                    <option value="per event">Per Event</option>
+                    <option value="per plate">Per Plate (Catering)</option>
+                    <option value="per day">Per Day</option>
+                    <option value="per hour">Per Hour</option>
+                    <option value="per package">Per Package</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">Short Description / Inclusions</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Complete floral decoration, stage lighting & entrance gate"
+                    value={newService.description}
+                    onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 bg-white p-3 rounded-xl border border-gray-200">
+                <label className="text-[9px] font-bold text-gray-700 uppercase block">Service Photo (Camera / Gallery or URL)</label>
+                <CloudinaryImageUploader
+                  label="📷 Take Service Photo or Pick from Gallery"
+                  currentImageUrl={newService.image}
+                  onImageUploaded={(url) => setNewService({ ...newService, image: url })}
+                />
                 <input
                   type="text"
-                  placeholder="Service Name (e.g. Stage Decor)"
-                  value={newService.name}
-                  onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                  className="sm:col-span-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
-                />
-                <input
-                  type="number"
-                  placeholder="Price (₹)"
-                  value={newService.price}
-                  onChange={(e) => setNewService({ ...newService, price: e.target.value })}
-                  className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                  placeholder="or paste image URL https://..."
+                  value={newService.image}
+                  onChange={(e) => setNewService({ ...newService, image: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none"
                 />
               </div>
-              <div className="flex justify-end">
+
+              <div className="flex justify-end pt-1">
                 <button
                   type="button"
                   onClick={addService}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black px-4 py-2 rounded-xl flex items-center gap-1 transition active:scale-95"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition active:scale-95"
                 >
-                  <Plus size={12} /> Add Service
+                  <Plus size={14} /> Add Service Package
                 </button>
               </div>
             </div>
 
-            {/* List of services */}
-            <div className="space-y-2">
+            {/* List of existing services */}
+            <div className="space-y-2.5">
               {(formData.services || []).map((srv: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-3 rounded-xl shadow-xs">
-                  <div>
-                    <span className="text-xs font-black text-gray-800">{srv.name}</span>
-                    <span className="text-[10px] text-gray-400 font-medium ml-2">₹{srv.price}</span>
+                <div key={idx} className="flex items-center justify-between bg-white border border-gray-200 p-3 rounded-2xl shadow-xs gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {srv.image ? (
+                      <img src={srv.image} alt={srv.name} className="w-12 h-12 rounded-xl object-cover border border-gray-100 shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 font-black text-sm flex items-center justify-center shrink-0">
+                        ₹
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-gray-900 truncate">{srv.name}</span>
+                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md uppercase">
+                          {srv.unit || 'per event'}
+                        </span>
+                      </div>
+                      {srv.description && (
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">{srv.description}</p>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeService(idx)}
-                    className="text-gray-400 hover:text-red-500 p-1 transition"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-black text-gray-900">₹{srv.price?.toLocaleString('en-IN')}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeService(idx)}
+                      className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
