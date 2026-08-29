@@ -16,6 +16,17 @@ const DEFAULT_CATEGORIES = [
   'Event Planners'
 ];
 
+const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Kolhapur': { lat: 16.7050, lng: 74.2433 },
+  'Pune': { lat: 18.5204, lng: 73.8567 },
+  'Mumbai': { lat: 19.0760, lng: 72.8777 },
+  'Goa': { lat: 15.2993, lng: 74.1240 },
+  'Bangalore': { lat: 12.9716, lng: 77.5946 },
+  'Delhi': { lat: 28.6139, lng: 77.2090 },
+  'Jaipur': { lat: 26.9124, lng: 75.7873 },
+  'Udaipur': { lat: 24.5854, lng: 73.7125 }
+};
+
 const DEFAULT_CITIES = [
   'Kolhapur',
   'Pune',
@@ -92,6 +103,8 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     fullAddress: '',
     googleMapsUrl: '',
     description: '',
+    latitude: '',
+    longitude: '',
     phone: '',
     whatsapp: '',
     instagram: '',
@@ -122,6 +135,8 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         location: vendor.location || vendor.region || 'Kolhapur',
         category: vendor.category || (vendor.categories?.[0]) || 'Venues',
         googleMapsUrl: vendor.googleMapsUrl || '',
+        latitude: vendor.latitude !== undefined ? String(vendor.latitude) : (CITY_COORDINATES[vendor.region || vendor.location]?.lat || ''),
+        longitude: vendor.longitude !== undefined ? String(vendor.longitude) : (CITY_COORDINATES[vendor.region || vendor.location]?.lng || ''),
         founderImage: vendor.founderImage || '',
         basePrice: vendor.basePrice || vendor.price || '',
         minBudget: vendor.minBudget || vendor.basePrice || '',
@@ -195,6 +210,10 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         trustScore: Number(formData.trustScore) || 90,
         regionRank: Number(formData.regionRank) || 0,
         rank: Number(formData.regionRank) || 0,
+        latitude: formData.latitude ? Number(formData.latitude) : (CITY_COORDINATES[formData.region || formData.location]?.lat || undefined),
+        longitude: formData.longitude ? Number(formData.longitude) : (CITY_COORDINATES[formData.region || formData.location]?.lng || undefined),
+        fullAddress: formData.fullAddress || formData.location || '',
+        googleMapsUrl: formData.googleMapsUrl || '',
         images: cleanImages.length > 0 ? cleanImages : ['https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=600'],
         videos: cleanVideos,
         reelUrl: cleanVideos[0] || '',
@@ -316,8 +335,15 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                   name="region" 
                   value={formData.region} 
                   onChange={(e) => {
+                    const selectedCity = e.target.value;
                     handleChange(e);
-                    setFormData((prev: any) => ({ ...prev, location: e.target.value }));
+                    const defaultCoords = CITY_COORDINATES[selectedCity];
+                    setFormData((prev: any) => ({ 
+                      ...prev, 
+                      location: selectedCity,
+                      latitude: defaultCoords ? String(defaultCoords.lat) : prev.latitude,
+                      longitude: defaultCoords ? String(defaultCoords.lng) : prev.longitude
+                    }));
                   }}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-brand-primary"
                 >
@@ -336,6 +362,83 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                   onChange={handleChange} 
                   placeholder="e.g. Tarabai Park, Kolhapur" 
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-brand-primary" 
+                />
+              </div>
+            </div>
+
+            {/* GPS Geolocation Coordinates for Distance Calculation */}
+            <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider block flex items-center gap-1.5">
+                  <span>📍</span> GPS Coordinates (For Live Distance & Navigation)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            latitude: String(pos.coords.latitude),
+                            longitude: String(pos.coords.longitude)
+                          }));
+                          alert(`GPS Located: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+                        },
+                        () => {
+                          const fallback = CITY_COORDINATES[formData.region || 'Kolhapur'] || { lat: 16.7050, lng: 74.2433 };
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            latitude: String(fallback.lat),
+                            longitude: String(fallback.lng)
+                          }));
+                          alert(`Applied city center GPS for ${formData.region || 'Kolhapur'}`);
+                        }
+                      );
+                    }
+                  }}
+                  className="text-[10px] font-black bg-amber-200/80 hover:bg-amber-300 text-amber-900 px-3 py-1 rounded-xl transition active:scale-95 flex items-center gap-1"
+                >
+                  <span>🎯 Auto-Detect GPS</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1">Latitude (e.g. 16.7050)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    name="latitude"
+                    placeholder="e.g. 16.7050"
+                    value={formData.latitude}
+                    onChange={handleChange}
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1">Longitude (e.g. 74.2433)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    name="longitude"
+                    placeholder="e.g. 74.2433"
+                    value={formData.longitude}
+                    onChange={handleChange}
+                    className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs font-mono font-bold outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1">Google Maps Direction / Place URL</label>
+                <input
+                  type="url"
+                  name="googleMapsUrl"
+                  placeholder="https://maps.google.com/?q=..."
+                  value={formData.googleMapsUrl}
+                  onChange={handleChange}
+                  className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-amber-500"
                 />
               </div>
             </div>
