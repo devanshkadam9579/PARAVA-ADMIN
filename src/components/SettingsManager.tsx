@@ -6,7 +6,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 export default function SettingsManager() {
   const [commissionPct, setCommissionPct] = useState<number>(10);
   const [fixedFee, setFixedFee] = useState<number>(0);
-  const [supportEmail, setSupportEmail] = useState('support@parvaevents.com');
+  const [supportEmail, setSupportEmail] = useState('support@parva.com');
+
   const [termsVersion, setTermsVersion] = useState('1.2');
   const [paymentsEnabled, setPaymentsEnabled] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState(false);
