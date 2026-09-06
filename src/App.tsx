@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { getAuthInstance, getDb } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { 
-  LayoutDashboard, Users, Grid, Tag, Inbox, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio
+  LayoutDashboard, Users, Grid, Tag, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio, DollarSign, ShieldCheck, Star, History, Calendar
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -11,12 +11,16 @@ import VendorsManager from './components/VendorsManager';
 import CategoriesManager from './components/CategoriesManager';
 import PromosManager from './components/PromosManager';
 import UsersManager from './components/UsersManager';
-import LeadsManager from './components/LeadsManager';
 import SettingsManager from './components/SettingsManager';
 import CitiesManager from './components/CitiesManager';
 import CouponsManager from './components/CouponsManager';
 import EmailLogsManager from './components/EmailLogsManager';
 import BroadcasterManager from './components/BroadcasterManager';
+import BookingsManager from './components/BookingsManager';
+import PaymentsManager from './components/PaymentsManager';
+import VendorVerificationManager from './components/VendorVerificationManager';
+import ReviewsModerator from './components/ReviewsModerator';
+import AuditLogsManager from './components/AuditLogsManager';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -113,21 +117,24 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Financials', icon: <LayoutDashboard size={18} /> },
-    { id: 'email_logs', label: 'Email Delivery Logs', icon: <Mail size={18} /> },
-    { id: 'broadcast', label: 'Live Push Broadcast', icon: <Radio size={18} /> },
+    { id: 'bookings', label: 'Bookings Console', icon: <Calendar size={18} /> },
+    { id: 'payments', label: 'Payments & Escrow', icon: <DollarSign size={18} /> },
+    { id: 'verification', label: 'Vendor Verification', icon: <ShieldCheck size={18} /> },
     { id: 'vendors', label: 'Vendors CRM', icon: <Building2 size={18} /> },
-    { id: 'leads', label: 'Customer Leads', icon: <Inbox size={18} /> },
+    { id: 'reviews', label: 'Review Moderation', icon: <Star size={18} /> },
     { id: 'categories', label: 'Service Categories', icon: <Grid size={18} /> },
     { id: 'promos', label: 'Promotions & Banners', icon: <Tag size={18} /> },
     { id: 'coupons', label: 'Coupons & Discounts', icon: <Ticket size={18} /> },
     { id: 'cities', label: 'City Operations', icon: <MapPin size={18} /> },
     { id: 'users', label: 'User Accounts', icon: <Users size={18} /> },
-    { id: 'settings', label: 'Policies & Gateway Mode', icon: <Settings size={18} /> },
+    { id: 'broadcast', label: 'Live Push Broadcast', icon: <Radio size={18} /> },
+    { id: 'email_logs', label: 'Email Delivery Logs', icon: <Mail size={18} /> },
+    { id: 'audit_logs', label: 'Security Audit Logs', icon: <History size={18} /> },
+    { id: 'settings', label: 'Platform Policies', icon: <Settings size={18} /> },
   ];
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex font-sans">
-      {/* Sidebar */}
       <aside className="w-72 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-screen sticky top-0">
         <div className="h-16 flex items-center px-6 border-b border-gray-100">
           <h1 className="text-lg font-black text-gray-900 tracking-tight">PARAVA <span className="text-brand-primary">ADMIN CONSOLE</span></h1>
@@ -155,9 +162,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
-        {/* Top Header */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-30">
           <div className="flex items-center gap-4 flex-1">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -171,18 +176,21 @@ export default function App() {
           </div>
         </header>
 
-        {/* Tab Content */}
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
           {activeTab === 'dashboard' && <Dashboard />}
-          {activeTab === 'email_logs' && <EmailLogsManager />}
-          {activeTab === 'broadcast' && <BroadcasterManager />}
+          {activeTab === 'bookings' && <BookingsManager />}
+          {activeTab === 'payments' && <PaymentsManager />}
+          {activeTab === 'verification' && <VendorVerificationManager />}
           {activeTab === 'vendors' && <VendorsManager />}
-          {activeTab === 'leads' && <LeadsManager />}
+          {activeTab === 'reviews' && <ReviewsModerator />}
           {activeTab === 'categories' && <CategoriesManager />}
           {activeTab === 'promos' && <PromosManager />}
           {activeTab === 'coupons' && <CouponsManager />}
           {activeTab === 'cities' && <CitiesManager />}
           {activeTab === 'users' && <UsersManager />}
+          {activeTab === 'broadcast' && <BroadcasterManager />}
+          {activeTab === 'email_logs' && <EmailLogsManager />}
+          {activeTab === 'audit_logs' && <AuditLogsManager />}
           {activeTab === 'settings' && <SettingsManager />}
         </div>
       </main>
