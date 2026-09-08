@@ -37,7 +37,8 @@ export default function CategoriesManager() {
       name: newCatName.trim(),
       icon: newCatIcon || 'Sparkles',
       iconName: newCatIcon || 'Sparkles',
-      image: imageUrl
+      image: imageUrl,
+      imageUrl: imageUrl
     };
 
     // Helper to call backend Admin SDK API (bypasses Firestore Security Rules)
@@ -114,7 +115,8 @@ export default function CategoriesManager() {
       name: editName.trim(),
       icon: editIcon || 'Sparkles',
       iconName: editIcon || 'Sparkles',
-      image: editImage || defaultImage
+      image: editImage || defaultImage,
+      imageUrl: editImage || defaultImage
     };
 
     const callBackendSave = async () => {
