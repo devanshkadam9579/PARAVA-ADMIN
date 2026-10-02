@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search } from 'lucide-react';
+import { authenticatedFetch } from '../lib/apiClient';
 
 const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
 
@@ -33,7 +34,7 @@ export default function CitiesManager() {
   const fetchCities = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/cities`);
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`);
       const data = await res.json();
       if (data.success && Array.isArray(data.blockedCities)) {
         setBlockedCities(data.blockedCities);
@@ -52,7 +53,7 @@ export default function CitiesManager() {
   const saveBlockedCities = async (updatedBlocked: string[]) => {
     setIsSaving(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/cities`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blockedCities: updatedBlocked })

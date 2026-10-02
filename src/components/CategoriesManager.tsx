@@ -1,6 +1,7 @@
 import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
+import { authenticatedFetch } from '../lib/apiClient';
 import { collection, onSnapshot, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Grid, Trash2, Plus, Edit2, X, Save } from 'lucide-react';
 
@@ -43,7 +44,7 @@ export default function CategoriesManager() {
 
     // Helper to call backend Admin SDK API (bypasses Firestore Security Rules)
     const callBackendAdd = async () => {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -78,7 +79,7 @@ export default function CategoriesManager() {
     if (!window.confirm(`Delete category "${id}"?`)) return;
 
     const callBackendDelete = async () => {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories/${id}`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/categories/${id}`, {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -120,7 +121,7 @@ export default function CategoriesManager() {
     };
 
     const callBackendSave = async () => {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/categories`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

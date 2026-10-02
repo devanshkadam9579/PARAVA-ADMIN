@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Radio, Send } from 'lucide-react';
 import CloudinaryImageUploader from './CloudinaryImageUploader';
+import { authenticatedFetch } from '../lib/apiClient';
 
 const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
 
@@ -19,7 +20,7 @@ export default function BroadcasterManager() {
 
     setIsBroadcasting(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/broadcast`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

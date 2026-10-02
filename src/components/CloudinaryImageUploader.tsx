@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Video, CheckCircle2, Loader2, X } from 'lucide-react';
+import { authenticatedFetch } from '../lib/apiClient';
 
 const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
 
@@ -84,7 +85,7 @@ export default function CloudinaryImageUploader({
       }
 
       // Upload to Backend
-      const res = await fetch(`${BACKEND_API_URL}/api/upload/image`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/upload/image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Ticket, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { authenticatedFetch } from '../lib/apiClient';
 
 const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
 
@@ -18,7 +19,7 @@ export default function CouponsManager() {
   const fetchCoupons = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/coupons`);
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons`);
       const data = await res.json();
       if (data.success) {
         setCoupons(data.coupons || []);
@@ -40,7 +41,7 @@ export default function CouponsManager() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/coupons`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,7 +78,7 @@ export default function CouponsManager() {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!window.confirm(`Delete coupon "${couponId}"?`)) return;
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/coupons/${couponId}`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons/${couponId}`, {
         method: 'DELETE'
       });
       const data = await res.json();

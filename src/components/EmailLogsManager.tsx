@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Mail, RefreshCw, Send } from 'lucide-react';
+import { authenticatedFetch } from '../lib/apiClient';
 
 const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
 
@@ -14,7 +15,7 @@ export default function EmailLogsManager() {
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/email-logs`);
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/email-logs`);
       const data = await res.json();
       if (data.success) {
         setLogs(data.logs || []);
@@ -34,7 +35,7 @@ export default function EmailLogsManager() {
     if (!testEmail) return;
     setIsSendingTest(true);
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/email/test`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/email/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: testEmail, role: testRole })
@@ -56,7 +57,7 @@ export default function EmailLogsManager() {
 
   const handleRetry = async (logId: string) => {
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/admin/email-logs/retry`, {
+      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/email-logs/retry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ logId })
