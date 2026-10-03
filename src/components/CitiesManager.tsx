@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search } from 'lucide-react';
+import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search, Trash2 } from 'lucide-react';
 import { authenticatedFetch } from '../lib/apiClient';
 
-const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
-const ALL_FRONTEND_CITIES = [
+const DEFAULT_OPERATIONAL_CITIES = [
   'Kolhapur',
   'Pune',
   'Nagpur',
@@ -23,7 +23,7 @@ const ALL_FRONTEND_CITIES = [
 ];
 
 export default function CitiesManager() {
-  const [cityList, setCityList] = useState<string[]>(ALL_FRONTEND_CITIES);
+  const [cityList, setCityList] = useState<string[]>(DEFAULT_OPERATIONAL_CITIES);
   const [blockedCities, setBlockedCities] = useState<string[]>([]);
   const [newCityName, setNewCityName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,8 +36,13 @@ export default function CitiesManager() {
     try {
       const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`);
       const data = await res.json();
-      if (data.success && Array.isArray(data.blockedCities)) {
-        setBlockedCities(data.blockedCities);
+      if (data.success) {
+        if (Array.isArray(data.operationalCities) && data.operationalCities.length > 0) {
+          setCityList(data.operationalCities);
+        }
+        if (Array.isArray(data.blockedCities)) {
+          setBlockedCities(data.blockedCities);
+        }
       }
     } catch (e) {
       console.error("Error fetching city settings:", e);
@@ -50,18 +55,22 @@ export default function CitiesManager() {
     fetchCities();
   }, []);
 
-  const saveBlockedCities = async (updatedBlocked: string[]) => {
+  const saveCitiesState = async (updatedOperational: string[], updatedBlocked: string[]) => {
     setIsSaving(true);
     try {
       const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blockedCities: updatedBlocked })
+        body: JSON.stringify({ 
+          operationalCities: updatedOperational,
+          blockedCities: updatedBlocked 
+        })
       });
       const data = await res.json();
       if (data.success) {
+        setCityList(updatedOperational);
         setBlockedCities(updatedBlocked);
-        setNotification('City availability status updated successfully.');
+        setNotification('City availability and operational market saved successfully.');
       }
     } catch (err: any) {
       setNotification(`Failed to update city status: ${err.message}`);
@@ -73,22 +82,33 @@ export default function CitiesManager() {
 
   const toggleCityStatus = (city: string) => {
     const isCurrentlyBlocked = blockedCities.includes(city);
-    const updated = isCurrentlyBlocked
+    const updatedBlocked = isCurrentlyBlocked
       ? blockedCities.filter(c => c !== city)
       : [...blockedCities, city];
-    saveBlockedCities(updated);
+    saveCitiesState(cityList, updatedBlocked);
   };
 
-  const handleAddCity = (e: React.FormEvent) => {
+  const handleAddCity = async (e: React.FormEvent) => {
     e.preventDefault();
     const formatted = newCityName.trim();
     if (!formatted) return;
-    if (!cityList.includes(formatted)) {
-      setCityList(prev => [...prev, formatted]);
-      setNotification(`Added ${formatted} to operational cities.`);
+
+    if (!cityList.some(c => c.toLowerCase() === formatted.toLowerCase())) {
+      const updatedOperational = [...cityList, formatted];
+      await saveCitiesState(updatedOperational, blockedCities);
+      setNotification(`Added "${formatted}" to operational platform cities.`);
+    } else {
+      setNotification(`City "${formatted}" already exists.`);
     }
     setNewCityName('');
-    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleRemoveCity = async (cityToRemove: string) => {
+    if (!window.confirm(`Remove "${cityToRemove}" completely from operational platform cities?`)) return;
+    const updatedOperational = cityList.filter(c => c !== cityToRemove);
+    const updatedBlocked = blockedCities.filter(c => c !== cityToRemove);
+    await saveCitiesState(updatedOperational, updatedBlocked);
+    setNotification(`Removed "${cityToRemove}" from platform.`);
   };
 
   const filteredCities = cityList.filter(c =>
@@ -104,9 +124,9 @@ export default function CitiesManager() {
             <MapPin size={22} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">City Operations & Operational Availability</h2>
+            <h2 className="text-xl font-bold text-gray-900">City Operations & Operational Markets</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Manage operational status for all cities listed on the customer app ({cityList.length} total)
+              Authoritative City Roster synchronized with Customer Explorer & Vendor App ({cityList.length} total)
             </p>
           </div>
         </div>
@@ -147,7 +167,7 @@ export default function CitiesManager() {
                 <CheckCircle size={14} /> Active ({cityList.length - blockedCities.length})
               </span>
               <span className="flex items-center gap-1 text-rose-600">
-                <Ban size={14} /> Inactive ({blockedCities.length})
+                <Ban size={14} /> Disabled ({blockedCities.length})
               </span>
             </div>
           </div>
@@ -165,8 +185,8 @@ export default function CitiesManager() {
                       : 'bg-white border-gray-200 hover:border-gray-300 text-gray-900'
                   }`}
                 >
-                  <div>
-                    <h4 className="font-bold text-xs">{city}</h4>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold text-xs truncate">{city}</h4>
                     <span className={`text-[10px] font-extrabold uppercase tracking-wider block mt-0.5 ${
                       isBlocked ? 'text-rose-600' : 'text-emerald-600'
                     }`}>
@@ -174,18 +194,29 @@ export default function CitiesManager() {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => toggleCityStatus(city)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition active:scale-95 border ${
-                      isBlocked
-                        ? 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                        : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                    }`}
-                  >
-                    {isBlocked ? 'Enable' : 'Disable'}
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => toggleCityStatus(city)}
+                      className={`px-2.5 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition active:scale-95 border ${
+                        isBlocked
+                          ? 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+                          : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                      }`}
+                    >
+                      {isBlocked ? 'Enable' : 'Disable'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => handleRemoveCity(city)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+                      title="Delete City"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -196,7 +227,7 @@ export default function CitiesManager() {
         <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs space-y-4 h-fit">
           <div>
             <h3 className="font-bold text-gray-900 text-sm">Add New Market / City</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Expand service availability to new cities</p>
+            <p className="text-xs text-gray-500 mt-0.5">Persistently expand platform service coverage</p>
           </div>
 
           <form onSubmit={handleAddCity} className="space-y-3">
@@ -214,6 +245,7 @@ export default function CitiesManager() {
 
             <button
               type="submit"
+              disabled={isSaving}
               className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
             >
               <Plus size={14} />

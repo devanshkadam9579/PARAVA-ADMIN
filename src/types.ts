@@ -12,17 +12,33 @@ export interface Review {
   comment: string;
 }
 
+export interface VendorAddonItem {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+  optional?: boolean;
+}
+
 export interface VendorServiceItem {
+  id?: string;
   name: string;
   price: number;
   description: string;
   unit: string;
+  image?: string;
+  images?: string[];
+  pricingModel?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
+  inclusions?: string[];
 }
 
 export interface Vendor {
   id: string;
   name: string;
   category: string; // e.g. "Banquet Hall", "Decorator", "Photographer"
+  categories?: string[];
   occasion: string[]; // e.g. ["Wedding", "Birthday"]
   tagline: string;
   description: string;
@@ -36,7 +52,10 @@ export interface Vendor {
   images: string[];
   videos?: string[];
   location: string;
+  region?: string;
   features: string[];
+  inclusions?: string[];
+  addons?: VendorAddonItem[];
   services: VendorServiceItem[];
   reviews: Review[];
   bookingsCount: number;
@@ -47,6 +66,7 @@ export interface Vendor {
   phone?: string;
   founderName?: string;
   founderImage?: string;
+  founderBio?: string;
   experience?: string;
   busyDates?: string[];
   latitude?: number;
@@ -129,7 +149,13 @@ export interface QuickCategory {
   id: string;
   name: string;
   iconName: string;
+  icon?: string;
   image: string;
+  imageUrl?: string;
+  description?: string;
+  status?: 'active' | 'inactive';
+  displayOrder?: number;
+  services?: string[];
 }
 
 export interface HeroPromo {

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import CalendarBlocker from './CalendarBlocker';
-import { X, Save, Image as ImageIcon, Phone, DollarSign, Award, User, Video, Plus, Trash2, Layers } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Phone, DollarSign, Award, User, Video, Plus, Trash2, Layers, Sparkles, CheckCircle } from 'lucide-react';
 
 const DEFAULT_CATEGORIES = [
   'Venues',
@@ -50,21 +50,29 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
 
   useEffect(() => {
     const db = getDb();
-    // Subscribe to live categories
+    // Subscribe to live categories (Active only)
     const unsubCat = onSnapshot(collection(db, 'categories'), (snap) => {
       const liveCats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (liveCats.length > 0) {
-        setCategories(liveCats);
+      const activeCats = liveCats
+        .filter((c: any) => c.status !== 'inactive')
+        .sort((a: any, b: any) => (Number(a.displayOrder) || 100) - (Number(b.displayOrder) || 100));
+      if (activeCats.length > 0) {
+        setCategories(activeCats);
       } else {
         setCategories(DEFAULT_CATEGORIES.map(name => ({ id: name.toLowerCase(), name })));
       }
     });
 
-    // Subscribe to live cities
-    const unsubCities = onSnapshot(collection(db, 'cities'), (snap) => {
-      const liveCities = snap.docs.map(d => d.data().name || d.id).filter(Boolean);
-      if (liveCities.length > 0) {
-        setCities(Array.from(new Set([...liveCities, ...DEFAULT_CITIES])));
+    // Subscribe to live cities from settings/cities
+    const unsubCities = onSnapshot(doc(db, 'settings', 'cities'), (snap) => {
+      const data = snap.data();
+      const operational = Array.isArray(data?.operationalCities) && data.operationalCities.length > 0
+        ? data.operationalCities
+        : DEFAULT_CITIES;
+      const blocked = Array.isArray(data?.blockedCities) ? data.blockedCities : [];
+      const activeCities = operational.filter((c: string) => !blocked.includes(c));
+      if (activeCities.length > 0) {
+        setCities(activeCities);
       }
     });
 
@@ -120,10 +128,16 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     regionRank: '0',
     approved: true,
     services: [],
+    features: ['Dedicated On-Site Supervisor', 'Aadhaar Verified Staff', 'Commercial Grade Redundancy'],
+    inclusions: [],
+    addons: [],
     busyDates: []
   });
 
   const [newService, setNewService] = useState({ name: '', price: '', unit: 'per event', description: '', image: '' });
+  const [newFeatureText, setNewFeatureText] = useState('');
+  const [newInclusionText, setNewInclusionText] = useState('');
+  const [newAddon, setNewAddon] = useState({ name: '', price: '', description: '', status: 'ACTIVE' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -146,6 +160,9 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         trustScore: vendor.trustScore || '90',
         approved: vendor.approved !== false,
         services: vendor.services || [],
+        features: vendor.features || ['Dedicated On-Site Supervisor', 'Aadhaar Verified Staff', 'Commercial Grade Redundancy'],
+        inclusions: vendor.inclusions || [],
+        addons: vendor.addons || [],
         busyDates: vendor.busyDates || []
       });
       if (vendor.categories && Array.isArray(vendor.categories)) {
@@ -217,6 +234,9 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         images: cleanImages.length > 0 ? cleanImages : ['https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=600'],
         videos: cleanVideos,
         reelUrl: cleanVideos[0] || '',
+        features: Array.isArray(formData.features) ? formData.features : [],
+        inclusions: Array.isArray(formData.inclusions) ? formData.inclusions : [],
+        addons: Array.isArray(formData.addons) ? formData.addons : [],
         approved: true,
         updatedAt: new Date().toISOString()
       };
@@ -235,15 +255,79 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
     if (!newService.name || !newService.price) return;
     setFormData((prev: any) => ({
       ...prev,
-      services: [...prev.services, { ...newService, price: Number(newService.price) }]
+      services: [...prev.services, { ...newService, id: `svc_${Date.now()}`, price: Number(newService.price) }]
     }));
-    setNewService({ name: '', price: '', unit: 'event', description: '', image: '' });
+    setNewService({ name: '', price: '', unit: 'per event', description: '', image: '' });
   };
 
   const removeService = (idx: number) => {
     setFormData((prev: any) => ({
       ...prev,
       services: prev.services.filter((_: any, i: number) => i !== idx)
+    }));
+  };
+
+  const addFeature = () => {
+    if (!newFeatureText.trim()) return;
+    setFormData((prev: any) => ({
+      ...prev,
+      features: [...(prev.features || []), newFeatureText.trim()]
+    }));
+    setNewFeatureText('');
+  };
+
+  const removeFeature = (idx: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      features: (prev.features || []).filter((_: any, i: number) => i !== idx)
+    }));
+  };
+
+  const addInclusion = () => {
+    if (!newInclusionText.trim()) return;
+    setFormData((prev: any) => ({
+      ...prev,
+      inclusions: [...(prev.inclusions || []), newInclusionText.trim()]
+    }));
+    setNewInclusionText('');
+  };
+
+  const removeInclusion = (idx: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      inclusions: (prev.inclusions || []).filter((_: any, i: number) => i !== idx)
+    }));
+  };
+
+  const addAddon = () => {
+    if (!newAddon.name.trim() || !newAddon.price) return;
+    const addonItem = {
+      id: `addon_${Date.now()}`,
+      name: newAddon.name.trim(),
+      price: Number(newAddon.price) || 0,
+      description: newAddon.description.trim(),
+      status: 'ACTIVE' as const
+    };
+    setFormData((prev: any) => ({
+      ...prev,
+      addons: [...(prev.addons || []), addonItem]
+    }));
+    setNewAddon({ name: '', price: '', description: '', status: 'ACTIVE' });
+  };
+
+  const removeAddon = (idx: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      addons: (prev.addons || []).filter((_: any, i: number) => i !== idx)
+    }));
+  };
+
+  const toggleAddonStatus = (idx: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      addons: (prev.addons || []).map((a: any, i: number) =>
+        i === idx ? { ...a, status: a.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE' } : a
+      )
     }));
   };
 
@@ -785,6 +869,203 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
                       className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition"
                     >
                       <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Section: Features & Key Highlights */}
+          <section className="space-y-3">
+            <h3 className="text-xs font-black text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={14} /> Features & Highlights (AmenitiesModal & Profile)
+            </h3>
+            
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Valet Parking, Aadhaar Verified Staff, Central AC"
+                value={newFeatureText}
+                onChange={(e) => setNewFeatureText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFeature(); } }}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-semibold outline-none focus:bg-white focus:border-brand-primary"
+              />
+              <button
+                type="button"
+                onClick={addFeature}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1 transition"
+              >
+                <Plus size={14} /> Add Feature
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(formData.features || []).map((feat: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-2"
+                >
+                  <span>{feat}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFeature(idx)}
+                    className="text-emerald-500 hover:text-emerald-900"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {(!formData.features || formData.features.length === 0) && (
+                <p className="text-[11px] text-gray-400 italic">No custom highlights added. Default amenities will apply.</p>
+              )}
+            </div>
+          </section>
+
+          {/* Section: Standard Inclusions */}
+          <section className="space-y-3">
+            <h3 className="text-xs font-black text-blue-700 uppercase tracking-wider flex items-center gap-2">
+              <CheckCircle size={14} /> Service Package Inclusions
+            </h3>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. 2 Professional Photographers, 4-Hour Coverage, Pre-Event Setup"
+                value={newInclusionText}
+                onChange={(e) => setNewInclusionText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addInclusion(); } }}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-semibold outline-none focus:bg-white focus:border-brand-primary"
+              />
+              <button
+                type="button"
+                onClick={addInclusion}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1 transition"
+              >
+                <Plus size={14} /> Add Inclusion
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(formData.inclusions || []).map((inc: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="bg-blue-50 text-blue-800 border border-blue-200 text-xs font-bold px-3 py-1 rounded-xl flex items-center gap-2"
+                >
+                  <span>{inc}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeInclusion(idx)}
+                    className="text-blue-500 hover:text-blue-900"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {(!formData.inclusions || formData.inclusions.length === 0) && (
+                <p className="text-[11px] text-gray-400 italic">No general package inclusions added.</p>
+              )}
+            </div>
+          </section>
+
+          {/* Section: Custom Add-on Enhancements */}
+          <section className="space-y-3">
+            <h3 className="text-xs font-black text-purple-700 uppercase tracking-wider flex items-center gap-2">
+              <Layers size={14} /> Dynamic Add-on Enhancements ({formData.addons?.length || 0})
+            </h3>
+            <p className="text-[11px] text-gray-500">Optional services customer can add during checkout (data-driven add-ons)</p>
+
+            <div className="bg-purple-50/50 p-4 rounded-2xl border border-purple-100 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="text-[9px] font-bold text-gray-600 uppercase block mb-1">Add-on Name *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Drone Teaser / Extra Live Counter"
+                    value={newAddon.name}
+                    onChange={(e) => setNewAddon({ ...newAddon, name: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-brand-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-gray-600 uppercase block mb-1">Price (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 5000"
+                    value={newAddon.price}
+                    onChange={(e) => setNewAddon({ ...newAddon, price: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[9px] font-bold text-gray-600 uppercase block mb-1">Add-on Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 4K aerial footage delivered within 7 business days"
+                  value={newAddon.description}
+                  onChange={(e) => setNewAddon({ ...newAddon, description: e.target.value })}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={addAddon}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1 transition"
+                >
+                  <Plus size={14} /> Add to Vendor Add-ons
+                </button>
+              </div>
+            </div>
+
+            {/* List of Add-ons */}
+            <div className="space-y-2">
+              {(formData.addons || []).map((addon: any, idx: number) => (
+                <div
+                  key={addon.id || idx}
+                  className={`p-3 rounded-2xl border transition flex items-center justify-between ${
+                    addon.status === 'INACTIVE'
+                      ? 'bg-gray-50 border-gray-200 opacity-60'
+                      : 'bg-white border-purple-200/80 shadow-2xs'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h5 className="font-extrabold text-xs text-gray-900">{addon.name}</h5>
+                      <span className="text-xs font-black text-purple-700">+₹{addon.price?.toLocaleString('en-IN')}</span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        addon.status === 'INACTIVE' ? 'bg-gray-200 text-gray-500' : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {addon.status === 'INACTIVE' ? 'Disabled' : 'Active'}
+                      </span>
+                    </div>
+                    {addon.description && (
+                      <p className="text-[11px] text-gray-500 mt-0.5">{addon.description}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleAddonStatus(idx)}
+                      className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-xl border transition ${
+                        addon.status === 'INACTIVE'
+                          ? 'bg-white text-emerald-700 border-emerald-300'
+                          : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                    >
+                      {addon.status === 'INACTIVE' ? 'Enable' : 'Disable'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeAddon(idx)}
+                      className="text-gray-400 hover:text-red-500 p-1 rounded-lg"
+                      title="Remove Add-on"
+                    >
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
