@@ -14,9 +14,9 @@ const getFirebase = () => {
     }
     app = initializeApp(firebaseConfig);
     try {
-      db = initializeFirestore(app, {
-        ignoreUndefinedProperties: true
-      });
+      db = firebaseConfig.firestoreDatabaseId
+        ? initializeFirestore(app, { ignoreUndefinedProperties: true }, firebaseConfig.firestoreDatabaseId)
+        : initializeFirestore(app, { ignoreUndefinedProperties: true });
     } catch {
       db = firebaseConfig.firestoreDatabaseId 
         ? getFirestore(app, firebaseConfig.firestoreDatabaseId)

@@ -22,6 +22,8 @@ import VendorVerificationManager from './components/VendorVerificationManager';
 import ReviewsModerator from './components/ReviewsModerator';
 import AuditLogsManager from './components/AuditLogsManager';
 import LeadsManager from './components/LeadsManager';
+import HeroCmsManager from './components/HeroCmsManager';
+import { Sparkles } from 'lucide-react';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -150,6 +152,7 @@ export default function App() {
     { id: 'broadcast', label: 'Live Push Broadcast', icon: <Radio size={18} /> },
     { id: 'email_logs', label: 'Email Delivery Logs', icon: <Mail size={18} /> },
     { id: 'audit_logs', label: 'Security Audit Logs', icon: <History size={18} /> },
+    { id: 'hero', label: 'Homepage Hero CMS', icon: <Sparkles size={18} /> },
     { id: 'settings', label: 'Platform Policies', icon: <Settings size={18} /> },
   ];
 
@@ -212,6 +215,7 @@ export default function App() {
           {activeTab === 'broadcast' && <BroadcasterManager />}
           {activeTab === 'email_logs' && <EmailLogsManager />}
           {activeTab === 'audit_logs' && <AuditLogsManager />}
+          {activeTab === 'hero' && <HeroCmsManager />}
           {activeTab === 'settings' && <SettingsManager />}
         </div>
       </main>
