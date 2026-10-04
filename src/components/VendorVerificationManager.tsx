@@ -9,7 +9,7 @@ const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhos
 export default function VendorVerificationManager() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'incomplete' | 'verified' | 'rejected'>('all');
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -28,6 +28,16 @@ export default function VendorVerificationManager() {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const isKycIncomplete = (v: any) => {
+    const phone = (v.phone || '').replace(/[^0-9]/g, '');
+    const email = (v.email || '').trim();
+    const name = (v.name || '').trim();
+    const desc = (v.description || '').trim();
+    const hasBasicDetails = phone.length >= 10 && email.includes('@') && name.length >= 2 && desc.length >= 10;
+    const hasKycSubmitted = v.kyc && v.kyc.status && v.kyc.status !== 'NOT_SUBMITTED';
+    return !hasBasicDetails || !hasKycSubmitted;
   };
 
   const handleApprove = async (vendorId: string) => {
@@ -115,9 +125,11 @@ export default function VendorVerificationManager() {
   };
 
   const filtered = vendors.filter(v => {
-    if (filter === 'pending' && v.approved) return false;
+    const incomplete = isKycIncomplete(v);
+    if (filter === 'pending' && (v.approved || incomplete)) return false;
+    if (filter === 'incomplete' && (v.approved || !incomplete)) return false;
     if (filter === 'verified' && !v.approved) return false;
-    if (filter === 'rejected' && (v.status !== 'SUSPENDED' && v.verificationStatus !== 'REJECTED')) return false;
+    if (filter === 'rejected' && (v.status !== 'SUSPENDED' && v.verificationStatus !== 'REJECTED' && v.kyc?.status !== 'REJECTED')) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -139,23 +151,27 @@ export default function VendorVerificationManager() {
       return;
     }
 
-    const csvData = filtered.map(v => ({
-      'Vendor ID': v.id,
-      'Business Name': v.name || '',
-      'Category': v.category || '',
-      'City / Location': v.location || '',
-      'Founder Name': v.founderName || '',
-      'Phone': v.phone || '',
-      'Email': v.email || '',
-      'Rating': v.rating || 5.0,
-      'Review Count': v.reviewsCount || 0,
-      'Approval Status': v.approved ? 'VERIFIED' : 'PENDING',
-      'Verification Status': v.verificationStatus || (v.approved ? 'APPROVED' : 'PENDING'),
-      'Listing Status': v.status || 'ACTIVE',
-      'Rejection Reason': v.rejectionReason || '',
-      'Created At': v.createdAt || '',
-      'Approved At': v.approvedAt || ''
-    }));
+    const csvData = filtered.map(v => {
+      const incomplete = isKycIncomplete(v);
+      return {
+        'Vendor ID': v.id,
+        'Business Name': v.name || '',
+        'Category': v.category || '',
+        'City / Location': v.location || '',
+        'Founder Name': v.founderName || '',
+        'Phone': v.phone || '',
+        'Email': v.email || '',
+        'Rating': v.rating || 5.0,
+        'Review Count': v.reviewsCount || 0,
+        'Approval Status': v.approved ? 'VERIFIED' : 'PENDING',
+        'KYC Status': v.approved ? 'VERIFIED' : incomplete ? 'KYC_INCOMPLETE' : (v.kyc?.status || 'PENDING_REVIEW'),
+        'Verification Status': v.verificationStatus || (v.approved ? 'APPROVED' : 'PENDING'),
+        'Listing Status': v.status || 'ACTIVE',
+        'Rejection Reason': v.rejectionReason || '',
+        'Created At': v.createdAt || '',
+        'Approved At': v.approvedAt || ''
+      };
+    });
 
     const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -203,7 +219,8 @@ export default function VendorVerificationManager() {
             className="px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-brand-primary"
           >
             <option value="all">All Vendors ({vendors.length})</option>
-            <option value="pending">Pending Review ({vendors.filter(v => !v.approved).length})</option>
+            <option value="pending">Pending Review ({vendors.filter(v => !v.approved && !isKycIncomplete(v)).length})</option>
+            <option value="incomplete">KYC Incomplete ({vendors.filter(v => !v.approved && isKycIncomplete(v)).length})</option>
             <option value="verified">Verified ({vendors.filter(v => v.approved).length})</option>
             <option value="rejected">Suspended / Rejected</option>
           </select>
@@ -226,59 +243,97 @@ export default function VendorVerificationManager() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map(v => (
-            <div key={v.id} className="bg-white rounded-3xl border border-gray-200 p-5 shadow-xs space-y-3 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black uppercase text-brand-primary">{v.category}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                    v.approved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}>
-                    {v.approved ? 'VERIFIED' : 'PENDING REVIEW'}
-                  </span>
+          {filtered.map(v => {
+            const incomplete = isKycIncomplete(v);
+
+            return (
+              <div key={v.id} className="bg-white rounded-3xl border border-gray-200 p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase text-brand-primary">{v.category}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      v.approved 
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                        : (v.status === 'SUSPENDED' || v.verificationStatus === 'REJECTED' || v.kyc?.status === 'REJECTED')
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : incomplete
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {v.approved 
+                        ? 'VERIFIED' 
+                        : (v.status === 'SUSPENDED' || v.verificationStatus === 'REJECTED' || v.kyc?.status === 'REJECTED')
+                        ? 'REJECTED'
+                        : incomplete
+                        ? 'KYC INCOMPLETE'
+                        : 'PENDING REVIEW'}
+                    </span>
+                  </div>
+
+                  <h3 className="font-extrabold text-sm text-gray-900">{v.name}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Founder: {v.founderName || 'Specialist'} • City: {v.location || 'Kolhapur'}</p>
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-2">{v.description}</p>
+
+                  {/* Missing details indicators */}
+                  {incomplete && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(!v.name || v.name.length < 2) && (
+                        <span className="text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">Missing Business Name</span>
+                      )}
+                      {(!v.phone || v.phone.replace(/[^0-9]/g, '').length < 10) && (
+                        <span className="text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">Missing Phone</span>
+                      )}
+                      {(!v.email || !v.email.includes('@')) && (
+                        <span className="text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">Missing Email</span>
+                      )}
+                      {(!v.description || v.description.length < 10) && (
+                        <span className="text-[9px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">Missing Info / Bio</span>
+                      )}
+                      {(!v.kyc || v.kyc?.status === 'NOT_SUBMITTED') && (
+                        <span className="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">KYC Docs Not Uploaded</span>
+                      )}
+                    </div>
+                  )}
+
+                  {v.rejectionReason && (
+                    <p className="text-[11px] text-red-600 mt-2 font-semibold bg-red-50 p-2 rounded-xl border border-red-100">
+                      Reason: {v.rejectionReason}
+                    </p>
+                  )}
                 </div>
 
-                <h3 className="font-extrabold text-sm text-gray-900">{v.name}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Founder: {v.founderName || 'Specialist'} • City: {v.location || 'Kolhapur'}</p>
-                <p className="text-xs text-gray-600 mt-2 line-clamp-2">{v.description}</p>
-                {v.rejectionReason && (
-                  <p className="text-[11px] text-red-600 mt-2 font-semibold bg-red-50 p-2 rounded-xl border border-red-100">
-                    Reason: {v.rejectionReason}
-                  </p>
-                )}
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
-                {!v.approved ? (
-                  <>
+                <div className="pt-3 flex items-center justify-end gap-2 border-t border-gray-100">
+                  {!v.approved ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleReject(v.id)}
+                        className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                      >
+                        Reject Application
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(v.id)}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check size={14} />
+                        <span>Approve Partner</span>
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => handleReject(v.id)}
-                      className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                      className="text-xs font-bold text-gray-400 hover:text-red-600 cursor-pointer"
                     >
-                      Reject Application
+                      Suspend Verification
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApprove(v.id)}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Check size={14} />
-                      <span>Approve Partner</span>
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleReject(v.id)}
-                    className="text-xs font-bold text-gray-400 hover:text-red-600 cursor-pointer"
-                  >
-                    Suspend Verification
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

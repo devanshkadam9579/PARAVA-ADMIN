@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Download, Search, Trash2, CheckCircle, XCircle, Plus, Edit2 } from 'lucide-react';
+import { Download, Search, Trash2, CheckCircle, XCircle, Plus, Edit2, AlertCircle } from 'lucide-react';
 import Papa from 'papaparse';
 import VendorEditorOverlay from './VendorEditorOverlay';
 
@@ -22,6 +22,18 @@ export default function VendorsManager() {
     return unsub;
   }, []);
 
+  const isKycIncomplete = (v: any) => {
+    return (
+      !v.phone ||
+      !v.email ||
+      !v.name ||
+      !v.description ||
+      !v.kyc ||
+      v.kyc?.status === 'NOT_SUBMITTED' ||
+      !v.kyc?.idProofUrl
+    );
+  };
+
   const handleExportCSV = () => {
     const csv = Papa.unparse(filteredVendors.map(v => ({
       ID: v.id,
@@ -29,9 +41,11 @@ export default function VendorsManager() {
       Category: v.category,
       Location: v.location,
       Phone: v.phone || '',
+      Email: v.email || '',
       Price: v.basePrice || v.price || '',
       Rating: v.rating || 0,
-      Approved: v.approved ? 'Yes' : 'No'
+      Approved: v.approved ? 'Yes' : 'No',
+      'KYC Status': v.approved ? 'VERIFIED' : isKycIncomplete(v) ? 'KYC_INCOMPLETE' : 'PENDING_REVIEW'
     })));
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -69,18 +83,25 @@ export default function VendorsManager() {
 
   const filteredVendors = vendors.filter(v => {
     const matchesSearch = v.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          v.id?.toLowerCase().includes(searchTerm.toLowerCase());
+                          v.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          v.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          v.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCity = filterCity === 'All' || v.location === filterCity;
     const matchesStatus = filterStatus === 'All' 
       ? true 
-      : filterStatus === 'Approved' ? v.approved === true : v.approved === false;
+      : filterStatus === 'Approved' 
+        ? v.approved === true 
+        : filterStatus === 'KYC_Incomplete'
+          ? isKycIncomplete(v)
+          : v.approved === false;
     
     return matchesSearch && matchesCity && matchesStatus;
   });
 
   const uniqueCities = ['All', ...Array.from(new Set(vendors.map(v => v.location).filter(Boolean)))];
 
-  const pendingCount = vendors.filter(v => !v.approved).length;
+  const pendingCount = vendors.filter(v => !v.approved && !isKycIncomplete(v)).length;
+  const kycIncompleteCount = vendors.filter(v => isKycIncomplete(v)).length;
 
   return (
     <div className="space-y-6">
@@ -128,6 +149,17 @@ export default function VendorsManager() {
           {pendingCount > 0 && (
             <span className={`px-2 py-0.5 rounded-full text-[10px] ${filterStatus === 'Pending' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}`}>
               {pendingCount}
+            </span>
+          )}
+        </button>
+        <button 
+          onClick={() => setFilterStatus('KYC_Incomplete')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${filterStatus === 'KYC_Incomplete' ? 'bg-rose-500 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
+        >
+          KYC Incomplete
+          {kycIncompleteCount > 0 && (
+            <span className={`px-2 py-0.5 rounded-full text-[10px] ${filterStatus === 'KYC_Incomplete' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700'}`}>
+              {kycIncompleteCount}
             </span>
           )}
         </button>
@@ -216,9 +248,13 @@ export default function VendorsManager() {
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider">
                           <CheckCircle size={12} /> Approved
                         </span>
+                      ) : isKycIncomplete(vendor) ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                          <AlertCircle size={12} /> KYC Incomplete
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-wider">
-                          <XCircle size={12} /> Pending
+                          <XCircle size={12} /> Pending Review
                         </span>
                       )}
                     </td>
