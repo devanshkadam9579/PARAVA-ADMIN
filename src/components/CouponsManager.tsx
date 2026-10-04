@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Ticket, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Ticket, Plus, Trash2, RefreshCw, Download } from 'lucide-react';
 import { authenticatedFetch } from '../lib/apiClient';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getDb } from '../lib/firebase';
+import Papa from 'papaparse';
 
-const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function CouponsManager() {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -16,13 +19,31 @@ export default function CouponsManager() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
+  useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+
+    // Real-time listener on coupons collection
+    const unsub = onSnapshot(collection(db, 'coupons'), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+      setCoupons(list);
+      setIsLoading(false);
+    }, (err) => {
+      console.warn("Firestore coupons onSnapshot warning, falling back to backend:", err);
+      fetchCoupons();
+    });
+
+    return () => unsub();
+  }, []);
+
   const fetchCoupons = async () => {
     setIsLoading(true);
     try {
       const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons`);
       const data = await res.json();
-      if (data.success) {
-        setCoupons(data.coupons || []);
+      if (data.success && Array.isArray(data.coupons)) {
+        setCoupons(data.coupons);
       }
     } catch (e) {
       console.error("Error fetching coupons:", e);
@@ -31,42 +52,48 @@ export default function CouponsManager() {
     }
   };
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || !discount) return;
 
     setIsSubmitting(true);
-    try {
-      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: code.trim().toUpperCase(),
-          discount: Number(discount),
-          type,
-          maxDiscount: maxDiscount ? Number(maxDiscount) : null,
-          minSpend: minSpend ? Number(minSpend) : 0,
-          expiryDate: expiryDate || null,
-          active: true
-        })
-      });
+    const cleanCode = code.trim().toUpperCase();
+    const couponData = {
+      id: cleanCode,
+      code: cleanCode,
+      discount: Number(discount),
+      type,
+      maxDiscount: maxDiscount ? Number(maxDiscount) : null,
+      minSpend: minSpend ? Number(minSpend) : 0,
+      expiryDate: expiryDate || null,
+      active: true,
+      createdAt: new Date().toISOString()
+    };
 
-      const data = await res.json();
-      if (data.success) {
-        setNotification(`Coupon ${code.toUpperCase()} created successfully.`);
-        setCode('');
-        setDiscount(10);
-        setMaxDiscount('');
-        setMinSpend('');
-        setExpiryDate('');
-        fetchCoupons();
-      } else {
-        setNotification(`Failed: ${data.error}`);
+    try {
+      // 1. Direct Firestore write
+      const db = getDb();
+      if (db) {
+        await setDoc(doc(db, 'coupons', cleanCode), couponData, { merge: true });
       }
+
+      // 2. Dual-write to backend API
+      try {
+        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(couponData)
+        });
+      } catch (beErr) {
+        console.warn("Backend coupon save note:", beErr);
+      }
+
+      setNotification(`Coupon ${cleanCode} created successfully.`);
+      setCode('');
+      setDiscount(10);
+      setMaxDiscount('');
+      setMinSpend('');
+      setExpiryDate('');
     } catch (err: any) {
       setNotification(`Error: ${err.message}`);
     } finally {
@@ -78,18 +105,54 @@ export default function CouponsManager() {
   const handleDeleteCoupon = async (couponId: string) => {
     if (!window.confirm(`Delete coupon "${couponId}"?`)) return;
     try {
-      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons/${couponId}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNotification(`Coupon ${couponId} deleted.`);
-        fetchCoupons();
+      // 1. Direct Firestore delete
+      const db = getDb();
+      if (db) {
+        await deleteDoc(doc(db, 'coupons', couponId));
       }
+
+      // 2. Dual-delete to backend API
+      try {
+        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/coupons/${couponId}`, {
+          method: 'DELETE'
+        });
+      } catch (beErr) {
+        console.warn("Backend coupon delete note:", beErr);
+      }
+
+      setNotification(`Coupon ${couponId} deleted.`);
     } catch (err: any) {
       setNotification(`Failed to delete coupon: ${err.message}`);
     }
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleExportCSV = () => {
+    if (coupons.length === 0) {
+      alert('No coupons available to export.');
+      return;
+    }
+
+    const csvData = coupons.map(c => ({
+      'Coupon Code': c.code || c.id,
+      'Discount Type': c.type || 'percentage',
+      'Discount Value': c.discount,
+      'Minimum Spend (INR)': c.minSpend || 0,
+      'Max Discount (INR)': c.maxDiscount || 'Unlimited',
+      'Status': c.active ? 'ACTIVE' : 'INACTIVE',
+      'Expiry Date': c.expiryDate || 'No Expiry',
+      'Created Date': c.createdAt || ''
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_coupons_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -103,19 +166,29 @@ export default function CouponsManager() {
           <div>
             <h2 className="text-xl font-bold text-gray-900">Coupons & Promotional Discount Codes</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Create customer checkout promo codes with instant backend verification
+              Create customer checkout promo codes with instant backend verification & single source of truth
             </p>
           </div>
         </div>
 
-        <button
-          onClick={fetchCoupons}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95"
-        >
-          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchCoupons}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Download CSV report of coupons"
+          >
+            <Download size={14} />
+            <span>Extract CSV</span>
+          </button>
+        </div>
       </div>
 
       {notification && (
@@ -180,7 +253,7 @@ export default function CouponsManager() {
             <button
               type="submit"
               disabled={isSubmitting || !code.trim()}
-              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold h-[38px] rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
+              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold h-[38px] rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
             >
               <Plus size={14} />
               <span>{isSubmitting ? 'Creating...' : 'Create Coupon'}</span>
@@ -191,10 +264,11 @@ export default function CouponsManager() {
 
       {/* Coupons Table */}
       <div className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">
             Active Discount Coupons ({coupons.length})
           </h3>
+          <span className="text-xs text-gray-400 font-semibold">Dual-Sync Firestore & REST API</span>
         </div>
 
         {coupons.length === 0 ? (
@@ -226,7 +300,7 @@ export default function CouponsManager() {
                     </td>
                     <td className="p-4">
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase">
-                        Active
+                        {c.active !== false ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="p-4 text-gray-500">
@@ -235,7 +309,7 @@ export default function CouponsManager() {
                     <td className="p-4 text-right">
                       <button
                         onClick={() => handleDeleteCoupon(c.id)}
-                        className="text-rose-600 hover:text-rose-800 font-bold p-1 rounded-lg hover:bg-rose-50 transition"
+                        className="text-rose-600 hover:text-rose-800 font-bold p-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
                       >
                         <Trash2 size={16} />
                       </button>

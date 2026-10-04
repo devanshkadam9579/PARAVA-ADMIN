@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Mail, RefreshCw, Send } from 'lucide-react';
+import { Mail, RefreshCw, Send, Download } from 'lucide-react';
 import { authenticatedFetch } from '../lib/apiClient';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { getDb } from '../lib/firebase';
+import Papa from 'papaparse';
 
-const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function EmailLogsManager() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -12,13 +15,42 @@ export default function EmailLogsManager() {
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
+  useEffect(() => {
+    const db = getDb();
+    if (!db) {
+      fetchLogs();
+      return;
+    }
+
+    // Real-time listener on Firestore email_events
+    try {
+      const q = query(collection(db, 'email_events'), orderBy('sentAt', 'desc'), limit(50));
+      const unsub = onSnapshot(q, (snap) => {
+        const list: any[] = [];
+        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        if (list.length > 0) {
+          setLogs(list);
+          setIsLoading(false);
+        } else {
+          fetchLogs();
+        }
+      }, (err) => {
+        console.warn("Firestore email logs listener note:", err);
+        fetchLogs();
+      });
+      return () => unsub();
+    } catch {
+      fetchLogs();
+    }
+  }, []);
+
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
       const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/email-logs`);
       const data = await res.json();
-      if (data.success) {
-        setLogs(data.logs || []);
+      if (data.success && Array.isArray(data.logs)) {
+        setLogs(data.logs);
       }
     } catch (e) {
       console.error("Error fetching email logs:", e);
@@ -26,10 +58,6 @@ export default function EmailLogsManager() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchLogs();
-  }, []);
 
   const handleSendTest = async () => {
     if (!testEmail) return;
@@ -73,6 +101,33 @@ export default function EmailLogsManager() {
     setTimeout(() => setNotification(null), 3500);
   };
 
+  const handleExportCSV = () => {
+    if (logs.length === 0) {
+      alert('No email logs available to export.');
+      return;
+    }
+
+    const csvData = logs.map(log => ({
+      'Log ID': log.id,
+      'Event Type': log.eventType || '',
+      'Recipient': log.recipient || '',
+      'Booking ID': log.bookingId || '',
+      'Status': log.status || 'sent',
+      'Sent At': log.sentAt || '',
+      'Resend Provider ID': log.providerMessageId || ''
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_email_logs_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -89,14 +144,24 @@ export default function EmailLogsManager() {
           </div>
         </div>
 
-        <button
-          onClick={fetchLogs}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95"
-        >
-          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-          <span>Refresh Logs</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchLogs}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            <span>Refresh Logs</span>
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Download CSV report of email logs"
+          >
+            <Download size={14} />
+            <span>Extract CSV</span>
+          </button>
+        </div>
       </div>
 
       {notification && (
@@ -141,7 +206,7 @@ export default function EmailLogsManager() {
             <button
               onClick={handleSendTest}
               disabled={isSendingTest || !testEmail}
-              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold h-[38px] rounded-xl text-xs flex items-center justify-center gap-2 transition active:scale-98"
+              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold h-[38px] rounded-xl text-xs flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer"
             >
               <Send size={13} />
               <span>{isSendingTest ? 'Sending...' : 'Send Test'}</span>
@@ -203,7 +268,7 @@ export default function EmailLogsManager() {
                       {log.status === 'failed' && (
                         <button
                           onClick={() => handleRetry(log.id)}
-                          className="text-brand-primary hover:underline font-bold"
+                          className="text-brand-primary hover:underline font-bold cursor-pointer"
                         >
                           Retry
                         </button>

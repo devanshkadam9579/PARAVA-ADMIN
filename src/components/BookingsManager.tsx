@@ -1,24 +1,82 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { getDb } from '../lib/firebase';
-import { Calendar } from 'lucide-react';
+import { Calendar, Download } from 'lucide-react';
+import Papa from 'papaparse';
 
 export default function BookingsManager() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [commissionPct, setCommissionPct] = useState<number>(10);
 
   useEffect(() => {
     const db = getDb();
-    const unsub = onSnapshot(collection(db, 'bookings'), (snap) => {
+    if (!db) return;
+
+    const unsubBookings = onSnapshot(collection(db, 'bookings'), (snap) => {
       const list: any[] = [];
       snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
       setBookings(list);
       setLoading(false);
     });
-    return unsub;
+
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.commissionPercentage !== undefined) setCommissionPct(Number(d.commissionPercentage));
+      }
+    });
+
+    return () => {
+      unsubBookings();
+      unsubSettings();
+    };
   }, []);
+
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      alert('No bookings available to export.');
+      return;
+    }
+
+    const csvData = filtered.map(b => {
+      const gross = b.totalPrice || b.priceSnapshot?.totalEventValue || 0;
+      const comm = b.commissionBreakdown?.platformCommission || b.pricing?.commissionAmount || Math.round(gross * (commissionPct / 100));
+      const payout = b.commissionBreakdown?.vendorPayout || (gross - comm);
+
+      return {
+        'Booking ID': b.bookingIdString || b.id,
+        'Vendor Name': b.vendor?.name || b.vendorName || '',
+        'Vendor ID': b.vendorId || b.vendor?.id || '',
+        'Category': b.serviceName || b.vendor?.category || '',
+        'Customer Name': b.customerName || b.customerData?.name || '',
+        'Customer Phone': b.customerPhone || b.customerData?.phone || '',
+        'Customer Email': b.customerEmail || b.customerData?.email || '',
+        'Event Date': b.eventDate || '',
+        'Event Time Slot': b.eventTimeSlot || '',
+        'Event City': b.city || b.vendor?.city || '',
+        'Gross Amount (INR)': gross,
+        'Platform Commission (INR)': comm,
+        'Vendor Net Payout (INR)': payout,
+        'Status': b.status || 'PENDING',
+        'Payment Status': b.paymentStatus || 'PENDING',
+        'Created At': b.createdAt || '',
+        'Special Requests': b.specialRequests || b.notes || ''
+      };
+    });
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_bookings_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     try {
@@ -52,7 +110,7 @@ export default function BookingsManager() {
           <p className="text-xs text-gray-500 mt-0.5">Authoritative bookings registry, price snapshots, and state machine transitions</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="Search booking, client, vendor..."
@@ -72,6 +130,14 @@ export default function BookingsManager() {
             <option value="cancelled">Cancelled</option>
             <option value="refunded">Refunded</option>
           </select>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Download CSV report of current bookings"
+          >
+            <Download size={14} />
+            <span>Extract CSV</span>
+          </button>
         </div>
       </div>
 
@@ -86,8 +152,9 @@ export default function BookingsManager() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(b => {
             const gross = b.totalPrice || b.priceSnapshot?.totalEventValue || 0;
-            const commission = Math.round(gross * 0.05);
-            const vendorPayout = gross - commission;
+            const commission = b.commissionBreakdown?.platformCommission || b.pricing?.commissionAmount || Math.round(gross * (commissionPct / 100));
+            const vendorPayout = b.commissionBreakdown?.vendorPayout || (gross - commission);
+            const appliedCommissionPct = b.commissionBreakdown?.platformCommissionPercentage !== undefined ? b.commissionBreakdown.platformCommissionPercentage : commissionPct;
 
             return (
               <div key={b.id} className="bg-white rounded-3xl border border-gray-200 p-5 shadow-xs space-y-3 flex flex-col justify-between">
@@ -112,7 +179,7 @@ export default function BookingsManager() {
                       <span className="font-black text-gray-900">₹{gross.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Platform Commission (5%):</span>
+                      <span className="text-gray-500">Platform Commission ({appliedCommissionPct}%):</span>
                       <span className="font-bold text-emerald-600">+₹{commission.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between">

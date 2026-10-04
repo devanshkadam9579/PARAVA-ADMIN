@@ -2,7 +2,8 @@ import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, setDoc } from 'firebase/firestore';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Download } from 'lucide-react';
+import Papa from 'papaparse';
 
 export default function PromosManager() {
   const [promos, setPromos] = useState<any[]>([]);
@@ -14,6 +15,7 @@ export default function PromosManager() {
 
   useEffect(() => {
     const db = getDb();
+    if (!db) return;
     const unsub = onSnapshot(collection(db, 'promos'), (snap) => {
       setPromos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -26,6 +28,7 @@ export default function PromosManager() {
     const customId = 'promo-' + Date.now();
     try {
       const db = getDb();
+      if (!db) return;
       await setDoc(doc(db, 'promos', customId), {
         id: customId,
         title: newTitle.trim(),
@@ -34,7 +37,8 @@ export default function PromosManager() {
         badge: newBadge.trim() || 'Featured Offer',
         gradient: 'from-pink-500/80 to-purple-600/80',
         tag: 'Celebration',
-        actionText: newActionText.trim() || 'Explore Now'
+        actionText: newActionText.trim() || 'Explore Now',
+        createdAt: new Date().toISOString()
       });
       setNewTitle('');
       setNewSubtitle('');
@@ -51,6 +55,7 @@ export default function PromosManager() {
     if (!window.confirm('Delete this promo banner?')) return;
     try {
       const db = getDb();
+      if (!db) return;
       await deleteDoc(doc(db, 'promos', id));
     } catch (e: any) {
       console.error(e);
@@ -58,23 +63,61 @@ export default function PromosManager() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (promos.length === 0) {
+      alert('No promotion banners available to export.');
+      return;
+    }
+
+    const csvData = promos.map(p => ({
+      'Promo ID': p.id,
+      'Headline': p.title || '',
+      'Subtitle': p.subtitle || '',
+      'Badge': p.badge || '',
+      'Action Button': p.actionText || '',
+      'Image URL': p.image || '',
+      'Tag': p.tag || 'Celebration',
+      'Created At': p.createdAt || ''
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_promotions_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-black text-gray-800">Manage Promotions</h2>
-        <p className="text-sm text-gray-500 mt-1">Configure homepage hero banners and offers.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800">Manage Promotions & Hero Banners</h2>
+          <p className="text-xs text-gray-500 mt-1">Configure customer homepage hero banners and seasonal offers ({promos.length} active)</p>
+        </div>
+        <button
+          onClick={handleExportCSV}
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+          title="Download CSV of promotions"
+        >
+          <Download size={14} />
+          <span>Extract CSV</span>
+        </button>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Add New Banner</h3>
+      <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-200">
+        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4">Add New Banner</h3>
         <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
           <div>
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Headline (Title)</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Headline (Title) *</label>
             <input 
               type="text" 
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-brand-primary"
               required
             />
           </div>
@@ -84,7 +127,7 @@ export default function PromosManager() {
               type="text" 
               value={newSubtitle}
               onChange={e => setNewSubtitle(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-brand-primary"
             />
           </div>
           <div>
@@ -93,7 +136,7 @@ export default function PromosManager() {
               type="text" 
               value={newBadge}
               onChange={e => setNewBadge(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-brand-primary"
             />
           </div>
           <div>
@@ -102,11 +145,11 @@ export default function PromosManager() {
               type="text" 
               value={newActionText}
               onChange={e => setNewActionText(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-semibold outline-none focus:border-brand-primary"
             />
           </div>
           <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Banner Image (Camera / Gallery or URL)</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Banner Image (Camera / Gallery or URL) *</label>
             <CloudinaryImageUploader
               label="📷 Upload Banner from Camera or Photo Library"
               currentImageUrl={newImage}
@@ -125,8 +168,8 @@ export default function PromosManager() {
             </div>
           </div>
           <div className="md:col-span-2 flex justify-end">
-            <button type="submit" className="bg-brand-primary text-white h-[42px] px-6 rounded-xl text-sm font-bold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2">
-              <Plus size={16} /> Publish Banner
+            <button type="submit" className="bg-brand-primary text-white h-[40px] px-6 rounded-xl text-xs font-extrabold hover:bg-brand-primary-dark transition flex items-center justify-center gap-2 cursor-pointer shadow-xs">
+              <Plus size={15} /> Publish Banner
             </button>
           </div>
         </form>
@@ -134,7 +177,7 @@ export default function PromosManager() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {promos.map(promo => (
-          <div key={promo.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col sm:flex-row h-[200px]">
+          <div key={promo.id} className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden flex flex-col sm:flex-row h-[200px]">
             <div className="sm:w-1/2 h-full relative">
               <img src={promo.image} alt={promo.title} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
@@ -159,7 +202,7 @@ export default function PromosManager() {
               <div className="flex justify-end">
                 <button 
                   onClick={() => handleDelete(promo.id)}
-                  className="flex items-center gap-1.5 text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                  className="flex items-center gap-1.5 text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
                 >
                   <Trash2 size={14} /> Remove
                 </button>

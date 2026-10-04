@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search, Trash2 } from 'lucide-react';
+import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search, Trash2, Download } from 'lucide-react';
 import { authenticatedFetch } from '../lib/apiClient';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { getDb } from '../lib/firebase';
+import Papa from 'papaparse';
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
@@ -31,6 +34,29 @@ export default function CitiesManager() {
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
+  useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+
+    // Listen to settings/cities for real-time reactivity
+    const unsub = onSnapshot(doc(db, 'settings', 'cities'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.operationalCities) && data.operationalCities.length > 0) {
+          setCityList(data.operationalCities);
+        }
+        if (Array.isArray(data.blockedCities)) {
+          setBlockedCities(data.blockedCities);
+        }
+      }
+    }, (err) => {
+      console.warn("Firestore cities onSnapshot note:", err);
+      fetchCities();
+    });
+
+    return () => unsub();
+  }, []);
+
   const fetchCities = async () => {
     setIsLoading(true);
     try {
@@ -51,27 +77,36 @@ export default function CitiesManager() {
     }
   };
 
-  useEffect(() => {
-    fetchCities();
-  }, []);
-
   const saveCitiesState = async (updatedOperational: string[], updatedBlocked: string[]) => {
     setIsSaving(true);
     try {
-      const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      // 1. Direct Firestore write
+      const db = getDb();
+      if (db) {
+        await setDoc(doc(db, 'settings', 'cities'), {
           operationalCities: updatedOperational,
-          blockedCities: updatedBlocked 
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCityList(updatedOperational);
-        setBlockedCities(updatedBlocked);
-        setNotification('City availability and operational market saved successfully.');
+          blockedCities: updatedBlocked,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
       }
+
+      // 2. Dual-write to backend Admin API
+      try {
+        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/cities`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            operationalCities: updatedOperational,
+            blockedCities: updatedBlocked 
+          })
+        });
+      } catch (beErr) {
+        console.warn("Backend cities save note:", beErr);
+      }
+
+      setCityList(updatedOperational);
+      setBlockedCities(updatedBlocked);
+      setNotification('City availability and operational market saved successfully.');
     } catch (err: any) {
       setNotification(`Failed to update city status: ${err.message}`);
     } finally {
@@ -111,6 +146,29 @@ export default function CitiesManager() {
     setNotification(`Removed "${cityToRemove}" from platform.`);
   };
 
+  const handleExportCSV = () => {
+    if (cityList.length === 0) {
+      alert('No cities available to export.');
+      return;
+    }
+
+    const csvData = cityList.map(c => ({
+      'City Name': c,
+      'Market Status': blockedCities.includes(c) ? 'DISABLED' : 'ACTIVE',
+      'Operational': 'Yes'
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_operational_cities_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredCities = cityList.filter(c =>
     c.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
@@ -131,14 +189,24 @@ export default function CitiesManager() {
           </div>
         </div>
 
-        <button
-          onClick={fetchCities}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95"
-        >
-          <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchCities}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-gray-200 transition active:scale-95 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Download CSV report of operational cities"
+          >
+            <Download size={14} />
+            <span>Extract CSV</span>
+          </button>
+        </div>
       </div>
 
       {notification && (
@@ -179,79 +247,77 @@ export default function CitiesManager() {
               return (
                 <div
                   key={city}
-                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between ${
+                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
                     isBlocked
-                      ? 'bg-rose-50/70 border-rose-200 text-rose-900'
-                      : 'bg-white border-gray-200 hover:border-gray-300 text-gray-900'
+                      ? 'bg-rose-50/50 border-rose-100 text-rose-900'
+                      : 'bg-gray-50 border-gray-200/70 text-gray-800'
                   }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-xs truncate">{city}</h4>
-                    <span className={`text-[10px] font-extrabold uppercase tracking-wider block mt-0.5 ${
-                      isBlocked ? 'text-rose-600' : 'text-emerald-600'
-                    }`}>
-                      {isBlocked ? 'Disabled on App' : 'Active & Operational'}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleCityStatus(city)}
+                      disabled={isSaving}
+                      className="cursor-pointer"
+                      title={isBlocked ? "Enable city" : "Disable city"}
+                    >
+                      {isBlocked ? (
+                        <Ban size={16} className="text-rose-500" />
+                      ) : (
+                        <CheckCircle size={16} className="text-emerald-600" />
+                      )}
+                    </button>
+                    <span className="font-bold text-xs">{city}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => toggleCityStatus(city)}
-                      className={`px-2.5 py-1.5 rounded-xl font-bold text-[10px] uppercase tracking-wider transition active:scale-95 border ${
-                        isBlocked
-                          ? 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                          : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                      }`}
-                    >
-                      {isBlocked ? 'Enable' : 'Disable'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => handleRemoveCity(city)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
-                      title="Delete City"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRemoveCity(city)}
+                    disabled={isSaving}
+                    className="text-gray-400 hover:text-rose-600 transition p-1 cursor-pointer"
+                    title="Remove from platform"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Add Custom City Form */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs space-y-4 h-fit">
+        {/* Add City Column */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-xs flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-gray-900 text-sm">Add New Market / City</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Persistently expand platform service coverage</p>
+            <h3 className="font-bold text-gray-900 text-sm mb-2">Add Operational Territory</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Add new cities to expand Parva platform coverage. Changes immediately reflect across Customer & Vendor apps.
+            </p>
+
+            <form onSubmit={handleAddCity} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">City Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Surat, Solapur"
+                  value={newCityName}
+                  onChange={(e) => setNewCityName(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-900 outline-none focus:bg-white focus:border-brand-primary"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSaving || !newCityName.trim()}
+                className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>{isSaving ? 'Saving...' : 'Add City'}</span>
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handleAddCity} className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">City Name</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Surat, Indore, Goa"
-                value={newCityName}
-                onChange={(e) => setNewCityName(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-gray-800 outline-none focus:bg-white focus:border-brand-primary"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98"
-            >
-              <Plus size={14} />
-              <span>Add City to Platform</span>
-            </button>
-          </form>
+          <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200/60 mt-4 text-[11px] text-amber-800 leading-relaxed font-medium">
+            💡 <strong>Note:</strong> Disabling a city hides it from customer location selectors without breaking active bookings.
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc } from 'firebase/firestore';
 import { 
   Grid, Tag, Inbox, Building2, TrendingUp, DollarSign, Activity
 } from 'lucide-react';
@@ -14,17 +14,38 @@ export default function Dashboard() {
     bookings: 0
   });
 
+  const [platformRevenue, setPlatformRevenue] = useState<number>(0);
+  const [commissionPct, setCommissionPct] = useState<number>(10);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
     const db = getDb();
+    if (!db) return;
+
+    // Listen to settings for dynamic commission
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
+      if (snap.exists() && snap.data().commissionPercentage !== undefined) {
+        setCommissionPct(Number(snap.data().commissionPercentage));
+      }
+    });
     
     const unsubs = [
+      unsubSettings,
       onSnapshot(collection(db, 'vendors'), snap => setStats(s => ({ ...s, vendors: snap.size }))),
       onSnapshot(collection(db, 'categories'), snap => setStats(s => ({ ...s, categories: snap.size }))),
       onSnapshot(collection(db, 'promos'), snap => setStats(s => ({ ...s, promos: snap.size }))),
       onSnapshot(collection(db, 'leads'), snap => setStats(s => ({ ...s, leads: snap.size }))),
-      onSnapshot(collection(db, 'bookings'), snap => setStats(s => ({ ...s, bookings: snap.size }))),
+      onSnapshot(collection(db, 'bookings'), snap => {
+        let totalRev = 0;
+        snap.forEach(d => {
+          const b = d.data();
+          const gross = b.totalPrice || b.priceSnapshot?.totalEventValue || 0;
+          const comm = b.commissionBreakdown?.platformCommission || b.pricing?.commissionAmount || Math.round(gross * (commissionPct / 100));
+          totalRev += (Number(comm) || 0);
+        });
+        setPlatformRevenue(totalRev);
+        setStats(s => ({ ...s, bookings: snap.size }));
+      }),
       
       // Fetch recent leads as proxy for live activity feed
       onSnapshot(query(collection(db, 'leads'), orderBy('timestamp', 'desc'), limit(10)), (snap) => {
@@ -33,8 +54,8 @@ export default function Dashboard() {
           return {
             id: d.id,
             type: 'lead',
-            message: `${data.userName || 'Someone'} requested info for ${data.vendorName || 'a vendor'}`,
-            time: data.timestamp
+            message: `${data.userName || data.customerName || 'Client'} requested inquiry for ${data.vendorName || 'a vendor'}`,
+            time: data.timestamp || (data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString())
           };
         });
         setRecentActivity(activities);
@@ -42,7 +63,7 @@ export default function Dashboard() {
     ];
 
     return () => unsubs.forEach(fn => fn());
-  }, []);
+  }, [commissionPct]);
 
   const cards = [
     { label: 'Total Vendors', value: stats.vendors, icon: <Building2 className="text-blue-500" size={24}/>, bg: 'bg-blue-50' },
@@ -50,14 +71,14 @@ export default function Dashboard() {
     { label: 'Total Leads', value: stats.leads, icon: <Inbox className="text-amber-500" size={24}/>, bg: 'bg-amber-50' },
     { label: 'Categories', value: stats.categories, icon: <Grid className="text-purple-500" size={24}/>, bg: 'bg-purple-50' },
     { label: 'Total Bookings', value: stats.bookings, icon: <TrendingUp className="text-rose-500" size={24}/>, bg: 'bg-rose-50' },
-    { label: 'Platform Revenue', value: '₹0', icon: <DollarSign className="text-indigo-500" size={24}/>, bg: 'bg-indigo-50' },
+    { label: 'Platform Revenue', value: `₹${platformRevenue.toLocaleString('en-IN')}`, icon: <DollarSign className="text-indigo-500" size={24}/>, bg: 'bg-indigo-50' },
   ];
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-black text-gray-800">System Overview</h2>
-        <p className="text-sm text-gray-500 mt-1">Real-time metrics and database statistics.</p>
+        <p className="text-sm text-gray-500 mt-1">Real-time metrics and live database statistics synchronized with platform commission.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

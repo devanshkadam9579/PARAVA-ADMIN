@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { authenticatedFetch } from '../lib/apiClient';
 import { collection, onSnapshot, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { Grid, Trash2, Plus, Edit2, X, Save, CheckCircle, Ban } from 'lucide-react';
+import { Grid, Trash2, Plus, Edit2, X, Save, CheckCircle, Ban, Download } from 'lucide-react';
+import Papa from 'papaparse';
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
@@ -195,6 +196,33 @@ export default function CategoriesManager() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (categories.length === 0) {
+      alert('No categories to export.');
+      return;
+    }
+    const csvData = categories.map(c => ({
+      'Category ID': c.id,
+      'Name': c.name || '',
+      'Status': c.status || 'active',
+      'Display Order': c.displayOrder || 10,
+      'Icon': c.icon || c.iconName || '',
+      'Image URL': c.image || c.imageUrl || '',
+      'Description': c.description || '',
+      'Services': Array.isArray(c.services) ? c.services.join('; ') : '',
+      'Updated At': c.updatedAt || ''
+    }));
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `parva_categories_catalog_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
@@ -202,13 +230,24 @@ export default function CategoriesManager() {
           <h2 className="text-2xl font-black text-gray-900">Service Categories CMS</h2>
           <p className="text-xs text-gray-500 mt-1">Authoritative Single Source of Truth for Customer Portal, Vendor App & Search Filtering</p>
         </div>
-        <div className="flex items-center gap-3 text-xs font-bold text-gray-600 bg-white px-4 py-2 rounded-2xl border border-gray-200 shadow-xs">
-          <span className="flex items-center gap-1.5 text-emerald-600">
-            <CheckCircle size={14} /> {categories.filter(c => c.status !== 'inactive').length} Active
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-400">
-            <Ban size={14} /> {categories.filter(c => c.status === 'inactive').length} Inactive
-          </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 text-xs font-bold text-gray-600 bg-white px-4 py-2 rounded-2xl border border-gray-200 shadow-xs">
+            <span className="flex items-center gap-1.5 text-emerald-600">
+              <CheckCircle size={14} /> {categories.filter(c => c.status !== 'inactive').length} Active
+            </span>
+            <span className="flex items-center gap-1.5 text-gray-400">
+              <Ban size={14} /> {categories.filter(c => c.status === 'inactive').length} Inactive
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 hover:bg-black text-white text-xs font-extrabold rounded-xl transition-all shadow-xs cursor-pointer"
+            title="Download CSV catalog of categories"
+          >
+            <Download size={14} />
+            <span>Extract CSV</span>
+          </button>
         </div>
       </div>
 

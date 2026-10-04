@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { getAuthInstance, getDb } from './lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { 
-  LayoutDashboard, Users, Grid, Tag, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio, DollarSign, ShieldCheck, Star, History, Calendar
+  LayoutDashboard, Users, Grid, Tag, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio, DollarSign, ShieldCheck, Star, History, Calendar, Inbox
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -21,6 +21,7 @@ import PaymentsManager from './components/PaymentsManager';
 import VendorVerificationManager from './components/VendorVerificationManager';
 import ReviewsModerator from './components/ReviewsModerator';
 import AuditLogsManager from './components/AuditLogsManager';
+import LeadsManager from './components/LeadsManager';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -32,7 +33,16 @@ export default function App() {
     const auth = getAuthInstance();
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const isMaster = ['devanshkadam2@gmail.com', 'devenshkadam2@gmail.com', 'devansh@parva.com'].includes(user.email || '');
+        const emailLower = (user.email || '').toLowerCase().trim();
+        const isMaster = [
+          'devanshkadam2@gmail.com',
+          'devenshkadam2@gmail.com',
+          'devansh@parva.com',
+          'admin@myparva.com',
+          'rohan@myparva.com',
+          'devanshkadam9579@gmail.com',
+          'admin@parva.com'
+        ].includes(emailLower);
         if (isMaster) {
           setIsAdmin(true);
           return;
@@ -58,7 +68,16 @@ export default function App() {
       const auth = getAuthInstance();
       const cred = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       
-      const isMaster = ['devanshkadam2@gmail.com', 'devenshkadam2@gmail.com', 'devansh@parva.com'].includes(cred.user.email || '');
+      const emailLower = (cred.user.email || '').toLowerCase().trim();
+      const isMaster = [
+        'devanshkadam2@gmail.com',
+        'devenshkadam2@gmail.com',
+        'devansh@parva.com',
+        'admin@myparva.com',
+        'rohan@myparva.com',
+        'devanshkadam9579@gmail.com',
+        'admin@parva.com'
+      ].includes(emailLower);
       if (isMaster) {
         setIsAdmin(true);
         return;
@@ -118,6 +137,7 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Financials', icon: <LayoutDashboard size={18} /> },
     { id: 'bookings', label: 'Bookings Console', icon: <Calendar size={18} /> },
+    { id: 'leads', label: 'Leads & Inquiries', icon: <Inbox size={18} /> },
     { id: 'payments', label: 'Payments & Escrow', icon: <DollarSign size={18} /> },
     { id: 'verification', label: 'Vendor Verification', icon: <ShieldCheck size={18} /> },
     { id: 'vendors', label: 'Vendors CRM', icon: <Building2 size={18} /> },
@@ -179,6 +199,7 @@ export default function App() {
         <div className="p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'bookings' && <BookingsManager />}
+          {activeTab === 'leads' && <LeadsManager />}
           {activeTab === 'payments' && <PaymentsManager />}
           {activeTab === 'verification' && <VendorVerificationManager />}
           {activeTab === 'vendors' && <VendorsManager />}
