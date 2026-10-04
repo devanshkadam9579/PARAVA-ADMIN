@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Mail, RefreshCw, Send, Download } from 'lucide-react';
-import { authenticatedFetch } from '../lib/apiClient';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { getDb } from '../lib/firebase';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function EmailLogsManager() {
   const [logs, setLogs] = useState<any[]>([]);

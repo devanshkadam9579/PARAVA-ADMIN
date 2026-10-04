@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -13,9 +13,15 @@ const getFirebase = () => {
       throw new Error('Firebase API key is missing. Please check your Firebase configuration.');
     }
     app = initializeApp(firebaseConfig);
-    db = firebaseConfig.firestoreDatabaseId 
-      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-      : getFirestore(app);
+    try {
+      db = initializeFirestore(app, {
+        ignoreUndefinedProperties: true
+      });
+    } catch {
+      db = firebaseConfig.firestoreDatabaseId 
+        ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+        : getFirestore(app);
+    }
     auth = getAuth(app);
   }
   return { db: db!, auth: auth! };

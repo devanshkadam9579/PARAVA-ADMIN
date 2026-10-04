@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Radio, Send, Download, Clock, Image as ImageIcon } from 'lucide-react';
 import CloudinaryImageUploader from './CloudinaryImageUploader';
-import { authenticatedFetch } from '../lib/apiClient';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getDb } from '../lib/firebase';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function BroadcasterManager() {
   const [broadcasts, setBroadcasts] = useState<any[]>([]);
@@ -44,24 +42,34 @@ export default function BroadcasterManager() {
     const cleanActionText = actionText.trim() || 'Explore Now';
     const cleanImageUrl = imageUrl.trim() || null;
 
+    let clientSaved = false;
+    let backendSaved = false;
+    let errorDetail = '';
+
     try {
       // 1. Direct Firestore write
-      const db = getDb();
-      if (db) {
-        await addDoc(collection(db, 'broadcast_notifications'), {
-          title: cleanTitle,
-          message: cleanMessage,
-          type,
-          imageUrl: cleanImageUrl,
-          actionText: cleanActionText,
-          createdAt: serverTimestamp(),
-          createdDateString: new Date().toISOString()
-        });
+      try {
+        const db = getDb();
+        if (db) {
+          await addDoc(collection(db, 'broadcast_notifications'), {
+            title: cleanTitle,
+            message: cleanMessage,
+            type,
+            imageUrl: cleanImageUrl,
+            actionText: cleanActionText,
+            createdAt: serverTimestamp(),
+            createdDateString: new Date().toISOString()
+          });
+          clientSaved = true;
+        }
+      } catch (clientErr: any) {
+        console.warn('[Broadcaster] Client Firestore write notice:', clientErr?.message);
+        errorDetail = clientErr?.message || '';
       }
 
-      // 2. Dual-call backend API
+      // 2. Authoritative backend Admin SDK write
       try {
-        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/broadcast`, {
+        const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/broadcast`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -72,14 +80,22 @@ export default function BroadcasterManager() {
             actionText: cleanActionText
           })
         });
-      } catch (beErr) {
-        console.warn("Backend broadcast push note:", beErr);
+        const resData = await res.json();
+        if (resData.success) {
+          backendSaved = true;
+        }
+      } catch (beErr: any) {
+        console.warn('[Broadcaster] Backend broadcast push notice:', beErr?.message);
       }
 
-      setFeedback('Live notification broadcasted successfully to all active user devices.');
-      setTitle('');
-      setMessage('');
-      setImageUrl('');
+      if (clientSaved || backendSaved) {
+        setFeedback('Live notification broadcasted successfully to all active user devices.');
+        setTitle('');
+        setMessage('');
+        setImageUrl('');
+      } else {
+        throw new Error(errorDetail || 'Failed to send broadcast to users.');
+      }
     } catch (err: any) {
       setFeedback(`Error broadcasting: ${err.message}`);
     } finally {

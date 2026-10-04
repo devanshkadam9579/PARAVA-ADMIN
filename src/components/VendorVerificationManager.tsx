@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { getDb, getAuthInstance } from '../lib/firebase';
+import { getDb } from '../lib/firebase';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { Check, Download, Search, AlertCircle, CheckCircle } from 'lucide-react';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function VendorVerificationManager() {
   const [vendors, setVendors] = useState<any[]>([]);
@@ -54,22 +53,14 @@ export default function VendorVerificationManager() {
 
       // Backend API sync
       try {
-        const auth = getAuthInstance();
-        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-        if (token) {
-          await fetch(`${BACKEND_API_URL}/api/admin/vendors/${vendorId}/status`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              approved: true,
-              verificationStatus: 'APPROVED',
-              status: 'ACTIVE'
-            })
-          });
-        }
+        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/vendors/${vendorId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            approved: true,
+            verificationStatus: 'APPROVED',
+            status: 'ACTIVE'
+          })
+        });
       } catch (beErr) {
         console.warn('Backend vendor approval sync note:', beErr);
       }
@@ -97,23 +88,15 @@ export default function VendorVerificationManager() {
 
       // Backend API sync
       try {
-        const auth = getAuthInstance();
-        const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-        if (token) {
-          await fetch(`${BACKEND_API_URL}/api/admin/vendors/${vendorId}/status`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              approved: false,
-              verificationStatus: 'REJECTED',
-              status: 'SUSPENDED',
-              rejectionReason: reason
-            })
-          });
-        }
+        await authenticatedFetch(`${BACKEND_API_URL}/api/admin/vendors/${vendorId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            approved: false,
+            verificationStatus: 'REJECTED',
+            status: 'SUSPENDED',
+            rejectionReason: reason
+          })
+        });
       } catch (beErr) {
         console.warn('Backend vendor rejection sync note:', beErr);
       }

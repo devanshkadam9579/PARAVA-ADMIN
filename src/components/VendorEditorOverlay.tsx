@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import CalendarBlocker from './CalendarBlocker';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { X, Save, Image as ImageIcon, Phone, DollarSign, Award, User, Video, Plus, Trash2, Layers, Sparkles, CheckCircle } from 'lucide-react';
 
 const DEFAULT_CATEGORIES = [
@@ -211,14 +212,17 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
       const cleanImages = imagesList.map(img => img.trim()).filter(Boolean);
       const cleanVideos = videosList.map(v => v.trim()).filter(Boolean);
 
-      const payload = {
+      const lat = formData.latitude ? Number(formData.latitude) : (CITY_COORDINATES[formData.region || formData.location]?.lat || null);
+      const lng = formData.longitude ? Number(formData.longitude) : (CITY_COORDINATES[formData.region || formData.location]?.lng || null);
+
+      const payload: any = {
         ...formData,
         id,
         category: selectedCategories[0] || formData.category || 'Venues',
         categories: selectedCategories.length > 0 ? selectedCategories : [formData.category || 'Venues'],
         location: formData.location || formData.region || 'Kolhapur',
         region: formData.region || formData.location || 'Kolhapur',
-        eventsHandled: formData.eventsHandled ? formData.eventsHandled.split(',').map((e: string) => e.trim()).filter(Boolean) : ['Weddings', 'Birthdays', 'Corporate'],
+        eventsHandled: formData.eventsHandled ? (typeof formData.eventsHandled === 'string' ? formData.eventsHandled.split(',').map((e: string) => e.trim()).filter(Boolean) : formData.eventsHandled) : ['Weddings', 'Birthdays', 'Corporate'],
         basePrice: Number(formData.basePrice) || Number(formData.minBudget) || 0,
         price: Number(formData.basePrice) || Number(formData.minBudget) || 0,
         minBudget: Number(formData.minBudget) || Number(formData.basePrice) || 0,
@@ -227,8 +231,8 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         trustScore: Number(formData.trustScore) || 90,
         regionRank: Number(formData.regionRank) || 0,
         rank: Number(formData.regionRank) || 0,
-        latitude: formData.latitude ? Number(formData.latitude) : (CITY_COORDINATES[formData.region || formData.location]?.lat || undefined),
-        longitude: formData.longitude ? Number(formData.longitude) : (CITY_COORDINATES[formData.region || formData.location]?.lng || undefined),
+        latitude: lat !== null ? lat : null,
+        longitude: lng !== null ? lng : null,
         fullAddress: formData.fullAddress || formData.location || '',
         googleMapsUrl: formData.googleMapsUrl || '',
         images: cleanImages.length > 0 ? cleanImages : ['https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=600'],
@@ -241,8 +245,48 @@ export default function VendorEditorOverlay({ vendor, onClose }: VendorEditorOve
         updatedAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'vendors', id), payload, { merge: true });
-      onClose();
+      // Strip any undefined keys so Firestore Web SDK does not throw Unsupported field value error
+      Object.keys(payload).forEach(k => {
+        if (payload[k] === undefined) {
+          delete payload[k];
+        }
+      });
+
+      let clientSuccess = false;
+      let backendSuccess = false;
+      let errorMsg = '';
+
+      // 1. Direct Client Firestore write
+      try {
+        if (db) {
+          await setDoc(doc(db, 'vendors', id), payload, { merge: true });
+          clientSuccess = true;
+        }
+      } catch (clientErr: any) {
+        console.warn('[VendorEditorOverlay] Client Firestore write notice:', clientErr?.message);
+        errorMsg = clientErr?.message || '';
+      }
+
+      // 2. Authoritative Backend Admin SDK dual-write
+      try {
+        const res = await authenticatedFetch(`${BACKEND_API_URL}/api/admin/vendors/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const resData = await res.json();
+        if (resData.success) {
+          backendSuccess = true;
+        }
+      } catch (backendErr: any) {
+        console.warn('[VendorEditorOverlay] Backend Admin SDK write notice:', backendErr?.message);
+      }
+
+      if (clientSuccess || backendSuccess) {
+        onClose();
+      } else {
+        throw new Error(errorMsg || 'Failed to save vendor to database or backend server.');
+      }
     } catch (err: any) {
       console.error(err);
       alert(`Error saving vendor: ${err?.message || err}`);

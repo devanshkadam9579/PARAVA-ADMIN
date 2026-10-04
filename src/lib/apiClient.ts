@@ -5,6 +5,8 @@
 
 import { getAuthInstance } from './firebase';
 
+export const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || import.meta.env.VITE_BACKEND_URL || 'https://parava-backend-1.onrender.com';
+
 export async function getAuthToken(): Promise<string | null> {
   try {
     const auth = getAuthInstance();

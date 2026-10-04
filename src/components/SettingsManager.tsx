@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, CreditCard, CheckCircle2 } from 'lucide-react';
 import { getDb } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { authenticatedFetch } from '../lib/apiClient';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 
 export default function SettingsManager() {
   const [commissionPct, setCommissionPct] = useState<number>(10);

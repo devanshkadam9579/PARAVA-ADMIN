@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Video, CheckCircle2, Loader2, X } from 'lucide-react';
-import { authenticatedFetch } from '../lib/apiClient';
-
-const BACKEND_API_URL = 'https://parava-backend-1.onrender.com';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 
 interface CloudinaryImageUploaderProps {
   onImageUploaded: (url: string) => void;
@@ -84,7 +82,7 @@ export default function CloudinaryImageUploader({
         setUploadProgress(40);
       }
 
-      // Upload to Backend
+      // Upload to Backend (Supports both WebP Image and MP4 Video)
       const res = await authenticatedFetch(`${BACKEND_API_URL}/api/upload/image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,13 +102,11 @@ export default function CloudinaryImageUploader({
         onImageUploaded(optimizedUrl);
         setUploadProgress(100);
       } else {
-        setPreviewUrl(uploadPayload);
-        onImageUploaded(uploadPayload);
-        setUploadProgress(100);
+        throw new Error(data.error || 'Server rejected media upload');
       }
     } catch (err: any) {
       console.error("Upload error:", err);
-      setErrorMsg("Failed to upload media. Please try again.");
+      setErrorMsg(err.message || "Failed to upload media. Please try again.");
     } finally {
       setIsUploading(false);
     }

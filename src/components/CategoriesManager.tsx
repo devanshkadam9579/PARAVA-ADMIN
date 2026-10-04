@@ -1,12 +1,10 @@
 import CloudinaryImageUploader from './CloudinaryImageUploader';
 import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
-import { authenticatedFetch } from '../lib/apiClient';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { collection, onSnapshot, doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Grid, Trash2, Plus, Edit2, X, Save, CheckCircle, Ban, Download } from 'lucide-react';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function CategoriesManager() {
   const [categories, setCategories] = useState<any[]>([]);

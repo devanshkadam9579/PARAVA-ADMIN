@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Ticket, Plus, Trash2, RefreshCw, Download } from 'lucide-react';
-import { authenticatedFetch } from '../lib/apiClient';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getDb } from '../lib/firebase';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 export default function CouponsManager() {
   const [coupons, setCoupons] = useState<any[]>([]);

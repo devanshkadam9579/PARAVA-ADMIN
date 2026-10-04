@@ -268,6 +268,7 @@ export default function VendorsManager() {
                           {vendor.approved ? <XCircle size={14} /> : <CheckCircle size={14} />}
                         </button>
                         <button 
+                          onClick={(e) => { e.stopPropagation(); setSelectedVendor(vendor); setShowEditor(true); }}
                           className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
                           title="Edit Vendor"
                         >

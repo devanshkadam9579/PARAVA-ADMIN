@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, RefreshCw, CheckCircle, Ban, Plus, Search, Trash2, Download } from 'lucide-react';
-import { authenticatedFetch } from '../lib/apiClient';
+import { authenticatedFetch, BACKEND_API_URL } from '../lib/apiClient';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { getDb } from '../lib/firebase';
 import Papa from 'papaparse';
-
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
 
 const DEFAULT_OPERATIONAL_CITIES = [
   'Kolhapur',
