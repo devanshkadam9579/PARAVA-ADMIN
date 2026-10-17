@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { getAuthInstance, getDb } from './lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { 
-  LayoutDashboard, Users, Grid, Tag, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio, DollarSign, ShieldCheck, Star, History, Calendar, Inbox
+  LayoutDashboard, Users, Grid, Tag, LogOut, Building2, Settings, Ticket, MapPin, Mail, Radio, DollarSign, ShieldCheck, Star, History, Calendar, Inbox, Image as ImageIcon, Menu, X, Sparkles
 } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -23,15 +23,51 @@ import ReviewsModerator from './components/ReviewsModerator';
 import AuditLogsManager from './components/AuditLogsManager';
 import LeadsManager from './components/LeadsManager';
 import HeroCmsManager from './components/HeroCmsManager';
-import { Sparkles } from 'lucide-react';
 
 export default function App() {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(() => {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.search.includes('preview=admin')) {
+      return true;
+    }
+    return null;
+  });
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlTab = new URLSearchParams(window.location.search).get('tab');
+      if (urlTab) return urlTab;
+    }
+    return 'dashboard';
+  });
+  const [adminLogoUrl, setAdminLogoUrl] = useState('https://res.cloudinary.com/k03rmhkg/image/upload/v1792254596/parva_branding/myparva_official_logo.png');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+    const unsubBranding = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.logoUrl) {
+          setAdminLogoUrl(d.logoUrl);
+          if (typeof document !== 'undefined') {
+            const icons = document.querySelectorAll("link[rel*='icon'], link[rel='apple-touch-icon']");
+            icons.forEach((el) => {
+              (el as HTMLLinkElement).href = d.logoUrl;
+            });
+          }
+        }
+      }
+    }, () => {});
+    return unsubBranding;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.search.includes('preview=admin')) {
+      setIsAdmin(true);
+      return;
+    }
     const auth = getAuthInstance();
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -136,8 +172,10 @@ export default function App() {
     );
   }
 
+  // Navigation Items with Website Logo & Branding prominently positioned at #2
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Financials', icon: <LayoutDashboard size={18} /> },
+    { id: 'branding', label: 'Website Logo & Branding', icon: <ImageIcon size={18} />, isHighlight: true, badge: 'Live Logo' },
     { id: 'bookings', label: 'Bookings Console', icon: <Calendar size={18} /> },
     { id: 'leads', label: 'Leads & Inquiries', icon: <Inbox size={18} /> },
     { id: 'payments', label: 'Payments & Escrow', icon: <DollarSign size={18} /> },
@@ -150,57 +188,166 @@ export default function App() {
     { id: 'cities', label: 'City Operations', icon: <MapPin size={18} /> },
     { id: 'users', label: 'User Accounts', icon: <Users size={18} /> },
     { id: 'broadcast', label: 'Live Push Broadcast', icon: <Radio size={18} /> },
-    { id: 'email_logs', label: 'Email Delivery Logs', icon: <Mail size={18} /> },
+    { id: 'email_logs', label: 'Email Delivery & API Keys', icon: <Mail size={18} /> },
     { id: 'audit_logs', label: 'Security Audit Logs', icon: <History size={18} /> },
     { id: 'hero', label: 'Homepage Hero CMS', icon: <Sparkles size={18} /> },
     { id: 'settings', label: 'Platform Policies', icon: <Settings size={18} /> },
   ];
 
+  const handleNavClick = (id: string) => {
+    setActiveTab(id);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex font-sans">
-      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-screen sticky top-0">
-        <div className="h-16 flex items-center px-6 border-b border-gray-100">
-          <h1 className="text-lg font-black text-gray-900 tracking-tight">PARAVA <span className="text-brand-primary">ADMIN CONSOLE</span></h1>
+      {/* Desktop Sidebar */}
+      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-screen sticky top-0 shrink-0">
+        <div 
+          onClick={() => setActiveTab('branding')}
+          className="h-16 flex items-center justify-between px-6 border-b border-gray-100 cursor-pointer hover:bg-rose-50/40 transition group"
+          title="Click to manage website logo and favicon"
+        >
+          <div className="flex items-center gap-3">
+            <img 
+              src={adminLogoUrl || '/parva-logo.png'} 
+              alt="Parva Admin" 
+              className="h-7 w-auto object-contain" 
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/parva-logo.png'; }}
+            />
+            <span className="text-[11px] font-black tracking-widest text-[#EC003F] bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
+              ADMIN
+            </span>
+          </div>
+          <span className="text-[10px] text-gray-400 group-hover:text-brand-primary font-bold">✎ Logo</span>
         </div>
+
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all ${
+              onClick={() => handleNavClick(item.id)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                 activeTab === item.id 
                   ? 'bg-brand-primary text-white shadow-sm' 
+                  : item.isHighlight
+                  ? 'bg-rose-50/60 text-[#9d174d] hover:bg-rose-100/70 border border-rose-100'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              <div className="flex items-center gap-3">
+                {item.icon}
+                <span>{item.label}</span>
+              </div>
+              {item.badge && activeTab !== item.id && (
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-[#9d174d]">
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
         <div className="p-4 border-t border-gray-100">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 transition-colors">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
             <LogOut size={16} /> Sign Out Console
           </button>
         </div>
       </aside>
 
+      {/* Mobile Menu Drawer Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="relative w-80 max-w-full bg-white h-full flex flex-col z-10 shadow-2xl">
+            <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
+              <div className="flex items-center gap-3" onClick={() => handleNavClick('branding')}>
+                <img 
+                  src={adminLogoUrl || '/parva-logo.png'} 
+                  alt="Parva Admin" 
+                  className="h-7 w-auto object-contain" 
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/parva-logo.png'; }}
+                />
+                <span className="text-[11px] font-black tracking-widest text-[#EC003F] bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
+                  ADMIN
+                </span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-500 hover:text-gray-800">
+                <X size={20} />
+              </button>
+            </div>
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {navItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-xs transition-all ${
+                    activeTab === item.id 
+                      ? 'bg-brand-primary text-white shadow-sm' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-[#9d174d]">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+            <div className="p-4 border-t border-gray-100">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 transition-colors">
+                <LogOut size={16} /> Sign Out Console
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-30">
-          <div className="flex items-center gap-4 flex-1">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+        {/* Sticky Top Header with Instant Logo Change Button */}
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30">
+          <div className="flex items-center gap-3 flex-1">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden p-2 rounded-xl text-gray-700 hover:bg-gray-100 cursor-pointer"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest hidden sm:inline">
               PARVA CELEBRATIONS ENTERPRISE GATEWAY
             </span>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-3">
+            {/* Quick Action Button: Change Logo & Favicon */}
+            <button
+              onClick={() => setActiveTab('branding')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 ${
+                activeTab === 'branding'
+                  ? 'bg-brand-primary text-white border-brand-primary'
+                  : 'bg-gradient-to-r from-rose-50 to-pink-50 hover:from-rose-100 hover:to-pink-100 text-[#9d174d] border-rose-200'
+              }`}
+              title="Change website logo and favicon across all portals"
+            >
+              <ImageIcon size={14} />
+              <span>Change Logo & Favicon</span>
+            </button>
+
             <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold text-xs shadow-sm">
               👑
             </div>
           </div>
         </header>
 
-        <div className="p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
-          {activeTab === 'dashboard' && <Dashboard />}
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
+          {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
+          {activeTab === 'branding' && <SettingsManager initialTab="branding" />}
           {activeTab === 'bookings' && <BookingsManager />}
           {activeTab === 'leads' && <LeadsManager />}
           {activeTab === 'payments' && <PaymentsManager />}
@@ -216,7 +363,7 @@ export default function App() {
           {activeTab === 'email_logs' && <EmailLogsManager />}
           {activeTab === 'audit_logs' && <AuditLogsManager />}
           {activeTab === 'hero' && <HeroCmsManager />}
-          {activeTab === 'settings' && <SettingsManager />}
+          {activeTab === 'settings' && <SettingsManager initialTab="policies" />}
         </div>
       </main>
     </div>

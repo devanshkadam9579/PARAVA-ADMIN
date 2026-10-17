@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react';
 import { getDb } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, doc } from 'firebase/firestore';
 import { 
-  Grid, Tag, Inbox, Building2, TrendingUp, DollarSign, Activity
+  Grid, Tag, Inbox, Building2, TrendingUp, DollarSign, Activity, Image as ImageIcon
 } from 'lucide-react';
 
-export default function Dashboard() {
+export interface DashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export default function Dashboard({ onNavigate }: DashboardProps = {}) {
   const [stats, setStats] = useState({
     vendors: 0,
     categories: 0,
@@ -79,6 +83,39 @@ export default function Dashboard() {
       <div>
         <h2 className="text-2xl font-black text-gray-800">System Overview</h2>
         <p className="text-sm text-gray-500 mt-1">Real-time metrics and live database statistics synchronized with platform commission.</p>
+      </div>
+
+      {/* Quick Action: Live Website Logo & Branding Banner */}
+      <div className="bg-gradient-to-r from-rose-50 via-white to-pink-50 rounded-[24px] p-6 border border-rose-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white border border-rose-100 flex items-center justify-center p-2 shadow-xs shrink-0">
+            <img 
+              src="/parva-logo.png" 
+              alt="Parva Brand" 
+              className="max-h-full max-w-full object-contain" 
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://res.cloudinary.com/k03rmhkg/image/upload/v1792254596/parva_branding/myparva_official_logo.png'; }} 
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-black text-gray-900">Website Logo & Favicon Management</h3>
+              <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border border-emerald-200">
+                Live Cloud Sync
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Upload or update the primary brand logo and favicon. Instantly syncs across customer site, vendor hub, and admin console.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigate?.('branding')}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#9d174d] hover:bg-[#831843] text-white rounded-xl text-xs font-bold transition shadow-xs shrink-0 cursor-pointer active:scale-95"
+        >
+          <ImageIcon size={14} />
+          <span>Change Website Logo</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
